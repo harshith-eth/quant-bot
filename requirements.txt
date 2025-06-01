@@ -1,0 +1,91 @@
+# Core FastAPI and server dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+websockets==12.0
+python-multipart==0.0.6
+
+# Rich terminal interface
+rich==13.7.0
+
+# Data processing and analysis
+pandas==2.1.3
+numpy==1.25.2
+aiofiles==23.2.1
+
+# HTTP client for API calls
+httpx==0.25.2
+requests==2.31.0
+
+# Async support
+asyncio-mqtt==0.16.1
+aioredis==2.0.1
+
+# Blockchain and crypto
+web3==6.11.3
+solana==0.30.2
+solders==0.18.1
+
+# AI and ML libraries (for the neural network components)
+torch==2.1.1
+transformers==4.35.2
+scikit-learn==1.3.2
+
+# Data validation
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Environment management
+python-dotenv==1.0.0
+
+# Logging and monitoring
+structlog==23.2.0
+prometheus-client==0.19.0
+
+# Testing (optional)
+pytest==7.4.3
+pytest-asyncio==0.21.1
+
+# Development tools (optional)
+black==23.11.0
+flake8==6.1.0
+mypy==1.7.1
+
+# REAL DATA SOURCES (Open Source/Free APIs)
+pycoingecko==3.1.0             # CoinGecko API for market data
+websocket-client==1.6.4        # WebSocket client for real-time data
+solana==0.30.2                 # Solana blockchain interaction
+solders==0.19.1                # Fast Solana SDK
+
+# Technical analysis and data processing  
+pandas==2.1.4                  # Data manipulation
+numpy==1.25.2                  # Numerical computing
+ta==0.10.2                     # Technical analysis library
+
+# Optional: Social media (free tiers only)
+python-telegram-bot==20.7      # Telegram bot API (optional)
+tweepy==4.14.0                 # Twitter API (optional)
+praw==7.7.1                    # Reddit API (optional)
+
+# Environment and configuration
+python-dotenv==1.0.0          # Environment variable loading
+
+# Jinja2 for templating
+jinja2==3.1.2
+
+# Python-jose for JWT
+python-jose[cryptography]==3.3.0
+
+# Passlib for password hashing
+passlib[bcrypt]==1.7.4
+
+# Redis client
+redis==5.0.1
+
+# Async PostgreSQL client
+asyncpg==0.29.0
+
+# SQLAlchemy for ORM
+sqlalchemy==2.0.23
+
+# Alembic for migrations
+alembic==1.13.0 

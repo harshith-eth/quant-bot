@@ -1,0 +1,323 @@
+QUANTUM TRADING SYSTEM - MATHEMATICAL RULES
+============================================
+
+VERSION: 2.4.7
+DOCUMENT ID: QTS-MATH-004
+CLASSIFICATION: QUANTITATIVE SPECIFICATION
+
+TABLE OF CONTENTS
+-----------------
+1. Core Mathematical Framework
+2. Risk Management Formulas
+3. Signal Processing Algorithms
+4. Portfolio Optimization
+5. Statistical Models
+6. Machine Learning Mathematics
+7. Performance Metrics
+
+1. CORE MATHEMATICAL FRAMEWORK
+===============================
+
+1.1 PROBABILITY THEORY FOUNDATIONS
+-----------------------------------
+The system operates on probabilistic principles for decision making:
+
+Bayes' Theorem for Signal Confidence:
+P(Signal_Valid|Market_Conditions) = P(Market_Conditions|Signal_Valid) × P(Signal_Valid) / P(Market_Conditions)
+
+Where:
+- P(Signal_Valid): Prior probability of signal being valid
+- P(Market_Conditions|Signal_Valid): Likelihood of current conditions given valid signal
+- P(Market_Conditions): Marginal probability of current conditions
+
+Expected Value Calculation:
+E(Trade) = P(Win) × Average_Win + P(Loss) × Average_Loss
+
+Kelly Criterion for Position Sizing:
+f* = (bp - q) / b
+Where:
+- f* = Optimal fraction of capital to bet
+- b = Odds (profit/loss ratio)
+- p = Probability of winning
+- q = Probability of losing (1-p)
+
+1.2 TIME SERIES ANALYSIS
+-------------------------
+Auto-Regressive Integrated Moving Average (ARIMA):
+X(t) = c + φ₁X(t-1) + φ₂X(t-2) + ... + φₚX(t-p) + θ₁ε(t-1) + θ₂ε(t-2) + ... + θₑε(t-q) + ε(t)
+
+Where:
+- X(t) = Price at time t
+- c = Constant
+- φᵢ = Autoregressive parameters
+- θⱼ = Moving average parameters
+- ε(t) = White noise error term
+
+Exponential Moving Average (EMA):
+EMA(t) = α × Price(t) + (1-α) × EMA(t-1)
+Where α = 2/(n+1) and n = period length
+
+Bollinger Bands:
+- Middle Band = SMA(n)
+- Upper Band = SMA(n) + (k × σ)
+- Lower Band = SMA(n) - (k × σ)
+Where σ is standard deviation and k is typically 2
+
+2. RISK MANAGEMENT FORMULAS
+===========================
+
+2.1 VALUE AT RISK (VAR) CALCULATIONS
+-------------------------------------
+Parametric VaR (Normal Distribution):
+VaR = Z(α) × σ × √t × V
+Where:
+- Z(α) = Critical value for confidence level α
+- σ = Portfolio volatility
+- t = Time horizon
+- V = Portfolio value
+
+Historical Simulation VaR:
+VaR = -Percentile(Returns, 1-α) × Portfolio_Value
+
+Monte Carlo VaR:
+1. Generate random returns using fitted distribution
+2. Calculate portfolio values for each simulation
+3. Determine percentile for confidence level
+
+2.2 POSITION SIZING ALGORITHMS
+-------------------------------
+Fixed Fractional Position Sizing:
+Position_Size = Account_Balance × Fixed_Fraction
+
+Volatility-Based Position Sizing:
+Position_Size = Risk_Amount / (Entry_Price × Stop_Loss_Distance × Volatility_Multiplier)
+
+Maximum Adverse Excursion (MAE) Based Sizing:
+Position_Size = Risk_Capital / Historical_MAE_Average
+
+2.3 DRAWDOWN CALCULATIONS
+--------------------------
+Maximum Drawdown:
+DD(t) = (Peak_Value - Current_Value) / Peak_Value
+
+Calmar Ratio:
+Calmar = Annual_Return / Maximum_Drawdown
+
+Ulcer Index:
+UI = √(Σ(DD_i²) / n)
+Where DD_i is drawdown at period i
+
+3. SIGNAL PROCESSING ALGORITHMS
+================================
+
+3.1 TECHNICAL INDICATORS
+-------------------------
+Relative Strength Index (RSI):
+RSI = 100 - (100 / (1 + RS))
+Where RS = Average_Gain / Average_Loss over n periods
+
+Moving Average Convergence Divergence (MACD):
+MACD = EMA₁₂ - EMA₂₆
+Signal_Line = EMA₉(MACD)
+Histogram = MACD - Signal_Line
+
+Stochastic Oscillator:
+%K = ((C - L₁₄) / (H₁₄ - L₁₄)) × 100
+%D = SMA₃(%K)
+Where C = Current close, L₁₄ = 14-period low, H₁₄ = 14-period high
+
+3.2 PATTERN RECOGNITION MATHEMATICS
+------------------------------------
+Candlestick Pattern Scoring:
+Pattern_Score = Σ(Weight_i × Condition_i) / Σ(Weight_i)
+
+Support/Resistance Level Strength:
+Level_Strength = (Touch_Count × 0.4) + (Volume_Average × 0.3) + (Time_Persistence × 0.3)
+
+Trend Strength Calculation:
+Trend_Strength = (Direction_Consistency × 0.5) + (Slope_Magnitude × 0.3) + (Volume_Confirmation × 0.2)
+
+3.3 MULTI-TIMEFRAME ANALYSIS
+-----------------------------
+Timeframe Weight Distribution:
+Weight(TF) = log(Current_TF / Base_TF) / log(Max_TF / Base_TF)
+
+Confluence Score:
+Confluence = Σ(Signal_i × Weight_i × Timeframe_i) / Σ(Weight_i)
+
+4. PORTFOLIO OPTIMIZATION
+==========================
+
+4.1 MODERN PORTFOLIO THEORY
+----------------------------
+Markowitz Optimization:
+Minimize: w^T Σ w (Portfolio variance)
+Subject to: w^T μ = R_target (Target return constraint)
+           Σ w_i = 1 (Budget constraint)
+           w_i ≥ 0 (Long-only constraint)
+
+Where:
+- w = Weight vector
+- Σ = Covariance matrix
+- μ = Expected return vector
+- R_target = Target portfolio return
+
+Sharpe Ratio Optimization:
+Maximize: (R_p - R_f) / σ_p
+Where:
+- R_p = Portfolio return
+- R_f = Risk-free rate
+- σ_p = Portfolio standard deviation
+
+4.2 ALTERNATIVE RISK MEASURES
+------------------------------
+Conditional Value at Risk (CVaR):
+CVaR = E[Loss | Loss > VaR]
+
+Sortino Ratio:
+Sortino = (R_p - R_f) / DD
+Where DD = Downside deviation
+
+Maximum Drawdown Duration:
+MDD_Duration = max(Recovery_Time_i) for all drawdown periods
+
+5. STATISTICAL MODELS
+======================
+
+5.1 CORRELATION ANALYSIS
+-------------------------
+Pearson Correlation:
+ρ(X,Y) = Cov(X,Y) / (σ_X × σ_Y)
+
+Spearman Rank Correlation:
+ρ_s = 1 - (6 × Σd_i²) / (n × (n²-1))
+Where d_i = difference in ranks
+
+Rolling Correlation:
+ρ_t = Correlation(X_{t-n:t}, Y_{t-n:t})
+
+5.2 VOLATILITY MODELING
+------------------------
+GARCH(1,1) Model:
+σ_t² = ω + α × ε_{t-1}² + β × σ_{t-1}²
+
+Where:
+- σ_t² = Conditional variance at time t
+- ω = Long-term average variance
+- α = ARCH parameter
+- β = GARCH parameter
+- ε_{t-1}² = Previous period's squared error
+
+Exponentially Weighted Moving Average (EWMA):
+σ_t² = λ × σ_{t-1}² + (1-λ) × r_{t-1}²
+
+5.3 REGIME DETECTION
+---------------------
+Markov Switching Model:
+P(S_t = j | S_{t-1} = i) = p_{ij}
+
+Hidden Markov Model for Market States:
+- Bull Market: μ₁, σ₁²
+- Bear Market: μ₂, σ₂²
+- Sideways Market: μ₃, σ₃²
+
+Threshold Autoregressive (TAR) Model:
+r_t = φ₁r_{t-1} + ε_t if r_{t-d} ≤ τ
+r_t = φ₂r_{t-1} + ε_t if r_{t-d} > τ
+
+6. MACHINE LEARNING MATHEMATICS
+================================
+
+6.1 NEURAL NETWORK FOUNDATIONS
+-------------------------------
+Forward Propagation:
+z^[l] = W^[l]a^[l-1] + b^[l]
+a^[l] = g^[l](z^[l])
+
+Where:
+- z^[l] = Linear combination at layer l
+- W^[l] = Weight matrix at layer l
+- a^[l] = Activation at layer l
+- b^[l] = Bias vector at layer l
+- g^[l] = Activation function at layer l
+
+Backpropagation:
+∂L/∂W^[l] = ∂L/∂z^[l] × (a^[l-1])^T
+∂L/∂b^[l] = ∂L/∂z^[l]
+
+Loss Functions:
+- Mean Squared Error: MSE = (1/n) × Σ(y_i - ŷ_i)²
+- Cross-Entropy: CE = -Σ(y_i × log(ŷ_i))
+
+6.2 RECURRENT NEURAL NETWORKS
+------------------------------
+LSTM Cell Equations:
+f_t = σ(W_f × [h_{t-1}, x_t] + b_f)  (Forget gate)
+i_t = σ(W_i × [h_{t-1}, x_t] + b_i)  (Input gate)
+C̃_t = tanh(W_C × [h_{t-1}, x_t] + b_C)  (Candidate values)
+C_t = f_t * C_{t-1} + i_t * C̃_t  (Cell state)
+o_t = σ(W_o × [h_{t-1}, x_t] + b_o)  (Output gate)
+h_t = o_t * tanh(C_t)  (Hidden state)
+
+6.3 ENSEMBLE METHODS
+---------------------
+Weighted Average Ensemble:
+ŷ = Σ(w_i × ŷ_i) where Σw_i = 1
+
+Bootstrap Aggregating (Bagging):
+ŷ = (1/B) × Σ ŷ_b
+
+Gradient Boosting:
+F_m(x) = F_{m-1}(x) + γ_m × h_m(x)
+
+7. PERFORMANCE METRICS
+======================
+
+7.1 RETURN METRICS
+-------------------
+Compound Annual Growth Rate (CAGR):
+CAGR = (Ending_Value / Beginning_Value)^(1/n) - 1
+
+Time-Weighted Return:
+TWR = Π(1 + R_i) - 1
+
+Money-Weighted Return (IRR):
+NPV = Σ(CF_t / (1 + IRR)^t) = 0
+
+7.2 RISK-ADJUSTED METRICS
+--------------------------
+Information Ratio:
+IR = (R_p - R_b) / TE
+Where TE = Tracking Error
+
+Treynor Ratio:
+Treynor = (R_p - R_f) / β_p
+
+Jensen's Alpha:
+α = R_p - [R_f + β_p × (R_m - R_f)]
+
+7.3 STATISTICAL SIGNIFICANCE
+-----------------------------
+T-Test for Mean Returns:
+t = (x̄ - μ₀) / (s / √n)
+
+Chi-Square Goodness of Fit:
+χ² = Σ((O_i - E_i)² / E_i)
+
+Jarque-Bera Test for Normality:
+JB = (n/6) × [S² + ((K-3)²/4)]
+Where S = Skewness, K = Kurtosis
+
+APPENDIX
+========
+
+A. Mathematical Constants and Formulas Reference
+B. Statistical Distribution Tables
+C. Numerical Methods Implementation
+D. Optimization Algorithm Details
+E. Error Handling in Mathematical Computations
+
+---
+Document Classification: Quantitative Specification
+Next Review Date: 2024-04-15
+Owner: Quantitative Research Team 

@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<div class="ai-analysis-card-container">
+    <h2 style="font-weight: normal;">AI ANALYSIS 
+        <span id="ai-stats" style="float: right; font-size: 0.9em; font-family: 'Courier New', monospace; color: #00ff00; font-weight: normal;">
+            LOADING...
+        </span>
+    </h2>
+
+    <div class="ai-content">
+        <div class="analysis-container">
+            <!-- Real AI Analysis -->
+            <div id="ai-analysis-content">
+                <div class="analysis-section">
+                    <div class="section-title">
+                        🤖 LOADING REAL AI ANALYSIS...
+                    </div>
+                    <div class="section-content">
+                        <div style="text-align: center; color: #00ff00; padding: 20px;">
+                            🧠 NEURAL NETWORKS ANALYZING MARKET DATA...
+                        </div>
+                    </div>
+                                  </div>
+              </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.ai-analysis-card-container {
+    height: 39.5vh;
+    display: flex;
+    flex-direction: column;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+    background: transparent;
+}
+
+.ai-analysis-card-container h2 {
+    padding: 0.5vh;
+    margin: 0 !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 3 !important;
+    background: linear-gradient(90deg, #001100 0%, #000300 100%);
+    border-bottom: 1px solid #00ff00;
+    font-family: 'Courier New', monospace;
+    color: #00ff00;
+    font-size: 1.24vh;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.ai-content {
+    position: absolute !important;
+    top: 3vh !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    overflow-y: auto !important;
+    padding: 0.5vh !important;
+    background: rgba(0, 5, 0, 0.2);
+    font-family: 'Courier New', monospace;
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+}
+
+.ai-content::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+}
+
+.analysis-container {
+    flex: 1;
+    overflow-y: auto;
+    display: grid;
+    grid-gap: 0.2rem;
+    padding: 0.3vh;
+    background: rgba(0, 5, 0, 0.2);
+}
+
+.analysis-section {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 255, 0, 0.1);
+    border-radius: 0;
+    padding: 0.3rem;
+    margin-bottom: 0.3rem;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: #00ff00;
+    font-size: 1.24vh;
+    margin-bottom: 0.2rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.section-content {
+    padding: 0.2rem;
+}
+
+.matrix-header {
+    color: #00ff00;
+    font-size: 0.8rem;
+    margin-bottom: 0.5rem;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.fib-levels {
+    margin: 0.5rem 0;
+}
+
+.fib-line {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.3rem 0;
+    font-size: 0.8rem;
+}
+
+.level {
+    color: #00ff00;
+    width: 60px;
+}
+
+.price {
+    color: #fff;
+    width: 70px;
+}
+
+.line {
+    flex-grow: 1;
+    height: 2px;
+    background: #333;
+}
+
+.line.strong-support {
+    background: #00ff00;
+    box-shadow: 0 0 5px #00ff00;
+}
+
+.neural-confidence {
+    margin-top: 0.5rem;
+}
+
+.confidence-bar {
+    height: 4px;
+    background: #1a1a1a;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.confidence-bar .fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00ff00, #00aa00);
+    animation: pulse 2s infinite;
+}
+
+.confidence-text {
+    font-size: 0.7rem;
+    color: #00ff00;
+    margin-top: 0.2rem;
+    display: block;
+    text-align: right;
+}
+
+.wave-display {
+    height: 80px;
+    background: #0a0a0a;
+    position: relative;
+    margin-bottom: 0.5rem;
+    overflow: hidden;
+}
+
+.wave-grid {
+    position: absolute;
+    inset: 0;
+    background: 
+        linear-gradient(#00ff0022 1px, transparent 1px) 0 0 / 20px 20px,
+        linear-gradient(90deg, #00ff0022 1px, transparent 1px) 0 0 / 20px 20px;
+}
+
+.wave-pattern {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(90deg, transparent, #00ff00, transparent);
+    opacity: 0.3;
+    animation: wave 3s infinite linear;
+}
+
+.wave-data {
+    font-size: 0.8rem;
+}
+
+.wave-status {
+    color: #00ff00;
+    margin-bottom: 0.3rem;
+}
+
+.wave-targets {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+
+.target {
+    background: rgba(0, 255, 0, 0.1);
+    padding: 0.2rem 0.4rem;
+    border-radius: 2px;
+    font-size: 0.7rem;
+}
+
+.quantum-signals {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.signal-item {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 0.3rem;
+    border-radius: 2px;
+    font-size: 0.7rem;
+}
+
+.signal-type {
+    color: #8b949e;
+    display: block;
+}
+
+.signal-value {
+    color: #00ff00;
+    display: block;
+    margin-top: 0.2rem;
+}
+
+.signal-value.extreme {
+    color: #ff3e00;
+}
+
+.pattern-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.3rem;
+}
+
+.pattern-cell {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 0.3rem;
+    border-radius: 2px;
+    font-size: 0.7rem;
+    text-align: center;
+}
+
+.pattern-cell.detected {
+    border: 1px solid #00ff00;
+}
+
+.pattern-cell.forming {
+    border: 1px solid #ffaa00;
+}
+
+.pattern-cell.alert {
+    border: 1px solid #ff3e00;
+    animation: pulse 2s infinite;
+}
+
+.quantum-matrix {
+    font-size: 0.8rem;
+}
+
+.matrix-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.3rem;
+    border-bottom: 1px solid rgba(0, 255, 0, 0.1);
+}
+
+.matrix-row.alert {
+    background: rgba(255, 62, 0, 0.1);
+}
+
+.time {
+    color: #8b949e;
+}
+
+.prediction {
+    color: #00ff00;
+}
+
+.probability {
+    color: #ffaa00;
+}
+
+.consensus-matrix {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 0.5rem;
+    border-radius: 2px;
+}
+
+.consensus-strength {
+    margin-bottom: 0.5rem;
+}
+
+.strength-bar {
+    height: 4px;
+    background: #1a1a1a;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 0.2rem;
+}
+
+.strength-bar .fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00ff00, #ffaa00);
+}
+
+.key-levels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+
+.level-item {
+    text-align: center;
+    font-size: 0.7rem;
+}
+
+.level-item span:first-child {
+    color: #8b949e;
+}
+
+.level-item .value {
+    color: #00ff00;
+    display: block;
+    margin-top: 0.2rem;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+@keyframes wave {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.fill.pulse {
+    animation: pulse 2s infinite;
+}
+</style>
+
+<script>
+// Fetch and display real AI analysis
+async function loadAIAnalysis() {
+    try {
+        const response = await fetch('/api/ai-analysis');
+        const data = await response.json();
+        
+        // Update header stats
+        const aiStats = document.getElementById('ai-stats');
+        aiStats.textContent = `CONF: ${data.confidence} | SCORE: ${data.ai_score} | ACC: ${data.model_accuracy}`;
+        
+        // Update content
+        const contentContainer = document.getElementById('ai-analysis-content');
+        contentContainer.innerHTML = `
+            <!-- Market Sentiment -->
+            <div class="analysis-section">
+                <div class="section-title">
+                    🧠 NEURAL MARKET ANALYSIS
+                </div>
+                <div class="section-content">
+                    <div class="consensus-matrix">
+                        <div class="consensus-strength">
+                            <span>SENTIMENT: ${data.market_sentiment}</span>
+                            <div class="strength-bar">
+                                <div class="fill" style="width: ${data.confidence}"></div>
+                            </div>
+                        </div>
+                        <div class="key-levels">
+                            <div class="level-item">
+                                <span>TREND</span>
+                                <span class="value">${data.trend_direction}</span>
+                            </div>
+                            <div class="level-item">
+                                <span>VOLATILITY</span>
+                                <span class="value">${data.volatility_index}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Predictions -->
+            <div class="analysis-section">
+                <div class="section-title">
+                    🎯 AI PREDICTIONS
+                </div>
+                <div class="section-content">
+                    <div class="quantum-matrix">
+                        <div class="matrix-row">
+                            <span class="time">1H</span>
+                            <span class="prediction">${data.predictions.next_1h}</span>
+                        </div>
+                        <div class="matrix-row">
+                            <span class="time">4H</span>
+                            <span class="prediction">${data.predictions.next_4h}</span>
+                        </div>
+                        <div class="matrix-row">
+                            <span class="time">24H</span>
+                            <span class="prediction">${data.predictions.next_24h}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Signals -->
+            <div class="analysis-section">
+                <div class="section-title">
+                    📡 NEURAL SIGNALS
+                </div>
+                <div class="section-content">
+                    <div class="signal-list">
+                        ${data.signals && data.signals.length > 0 ? 
+                            data.signals.slice(0, 3).map(signal => `
+                                <div class="signal-item">
+                                    <span class="signal-type">${signal.type}</span>
+                                    <span class="signal-value ${signal.direction.toLowerCase()}">${signal.direction}</span>
+                                    <span style="font-size: 0.8em; color: #888;">${signal.time || 'Now'}</span>
+                                </div>
+                            `).join('') :
+                            '<div style="text-align: center; color: #888;">🤖 SCANNING FOR SIGNALS...</div>'
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Risk Analysis -->
+            <div class="analysis-section">
+                <div class="section-title">
+                    ⚠️ RISK FACTORS
+                </div>
+                <div class="section-content">
+                    <div class="risk-list">
+                        ${data.risk_factors && data.risk_factors.length > 0 ?
+                            data.risk_factors.slice(0, 3).map(risk => `
+                                <div class="risk-item" style="padding: 5px; border-bottom: 1px solid rgba(255,255,0,0.1);">
+                                    <span style="color: #ffaa00;">⚠️ ${risk}</span>
+                                </div>
+                            `).join('') :
+                            '<div style="text-align: center; color: #00ff00;">✅ LOW RISK ENVIRONMENT</div>'
+                        }
+                    </div>
+                </div>
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('Error loading AI analysis:', error);
+        document.getElementById('ai-analysis-content').innerHTML = `
+            <div class="analysis-section">
+                <div class="section-title">
+                    ❌ AI ANALYSIS ERROR
+                </div>
+                <div class="section-content">
+                    <div style="text-align: center; color: #ff0000; padding: 20px;">
+                        NEURAL NETWORKS OFFLINE
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Load AI analysis on page load
+document.addEventListener('DOMContentLoaded', loadAIAnalysis);
+
+// Auto-refresh every 10 seconds
+setInterval(loadAIAnalysis, 10000);
+</script>
