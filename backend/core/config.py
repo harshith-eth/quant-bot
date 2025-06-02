@@ -80,5 +80,66 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
 
+# REAL TRADING CONFIGURATION - NO SIMULATION SHIT
+class RealTradingConfig:
+    """Real trading configuration - HANDLES ACTUAL MONEY"""
+    
+    # Trading Wallet Settings
+    WALLET_PRIVATE_KEY: str = None  # Set this to your wallet private key
+    SOL_RPC_URL: str = "https://api.mainnet-beta.solana.com"
+    
+    # Risk Management
+    MAX_POSITION_SIZE: float = 5.0  # Max SOL per position
+    MAX_PORTFOLIO_RISK: float = 0.8  # Max 80% of wallet balance at risk
+    DEFAULT_SLIPPAGE: int = 50  # 0.5% slippage in basis points
+    
+    # Trading Parameters
+    MIN_TRADE_SIZE: float = 0.01  # Minimum 0.01 SOL trade
+    MAX_POSITIONS: int = 5
+    AUTO_TP_PERCENTAGE: float = 100.0  # 100% take profit
+    AUTO_SL_PERCENTAGE: float = -30.0  # -30% stop loss
+    
+    # Jupiter API
+    JUPITER_API_V6: str = "https://quote-api.jup.ag/v6"
+    JUPITER_TRANSACTION_FEE: int = 1000000  # 0.001 SOL priority fee
+    
+    # Security Settings
+    ENABLE_AUTO_TRADING: bool = False  # Must be manually enabled
+    REQUIRE_MANUAL_APPROVAL: bool = True  # Require approval for trades
+    EMERGENCY_EXIT_THRESHOLD: float = -50.0  # Emergency exit at -50% portfolio
+    
+    # Hot Wallet Protection
+    MAX_HOT_WALLET_BALANCE: float = 50.0  # Max SOL to keep in hot wallet
+    COLD_WALLET_ADDRESS: str = None  # For excess funds
+    
+    @classmethod
+    def validate_wallet_config(cls) -> bool:
+        """Validate wallet configuration"""
+        if not cls.WALLET_PRIVATE_KEY:
+            return False
+        
+        # Add validation for private key format
+        try:
+            if len(cls.WALLET_PRIVATE_KEY) not in [88, 128]:  # Base58 or hex
+                return False
+            return True
+        except:
+            return False
+    
+    @classmethod
+    def get_trading_limits(cls) -> dict:
+        """Get current trading limits"""
+        return {
+            "max_position_size": cls.MAX_POSITION_SIZE,
+            "max_portfolio_risk": cls.MAX_PORTFOLIO_RISK,
+            "min_trade_size": cls.MIN_TRADE_SIZE,
+            "max_positions": cls.MAX_POSITIONS,
+            "slippage_bps": cls.DEFAULT_SLIPPAGE,
+            "auto_trading_enabled": cls.ENABLE_AUTO_TRADING
+        }
+
 # Global settings instance
-settings = Settings() 
+settings = Settings()
+
+# Global real trading config instance
+real_trading_config = RealTradingConfig() 

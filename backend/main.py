@@ -24,7 +24,7 @@ from core.websocket_manager import WebSocketManager
 from core.config import settings
 
 # Import real data modules
-from active_positions.position_manager import PositionManager
+from active_positions.position_manager import PositionManager, RealPositionManager
 from ai_analysis.neural_analyzer import NeuralAnalyzer
 from market_analysis.market_intelligence import MarketIntelligence
 from meme_scanner.token_hunter import TokenHunter
@@ -32,6 +32,9 @@ from portfolio_status.portfolio_tracker import PortfolioTracker
 from risk_management.risk_engine import RiskEngine
 from signal_feed.signal_aggregator import SignalAggregator
 from whale_activity.whale_tracker import WhaleTracker
+
+# Import REAL trading components
+from trading.jupiter_trader import RealJupiterTrader
 
 # Global variables
 ai_swarm: Optional[AISwarmOrchestrator] = None
@@ -315,6 +318,109 @@ async def fetch_whale_transactions():
     except Exception as e:
         print(f"Error fetching whale transactions: {e}")
         return []
+
+async def initialize_real_trading_system():
+    """Initialize the REAL trading system"""
+    logger.info("🚀 INITIALIZING REAL TRADING SYSTEM...")
+    
+    # Initialize REAL components
+    position_manager = RealPositionManager()
+    trader = RealJupiterTrader()
+    
+    # Initialize AI Swarm with REAL trading
+    orchestrator = AISwarmOrchestrator(
+        position_manager=position_manager,
+        meme_scanner=meme_scanner,
+        market_intelligence=market_intelligence,
+        neural_analyzer=neural_analyzer,
+        portfolio_tracker=portfolio_tracker,
+        risk_engine=risk_engine,
+        signal_aggregator=signal_aggregator,
+        whale_tracker=whale_tracker
+    )
+    
+    await orchestrator.initialize()
+    
+    logger.info("✅ REAL TRADING SYSTEM ONLINE")
+    return orchestrator
+
+# Replace the old initialization
+@app.on_event("startup")
+async def startup_event():
+    """Initialize all systems on startup"""
+    logger.info("🚀 STARTING QUANT BOT WITH REAL TRADING...")
+    
+    try:
+        # Initialize REAL trading system
+        global ai_orchestrator
+        ai_orchestrator = await initialize_real_trading_system()
+        
+        logger.info("✅ QUANT BOT ONLINE - READY FOR REAL TRADING")
+        
+    except Exception as e:
+        logger.error(f"❌ STARTUP FAILED: {e}")
+        raise
+
+# Add real trading API endpoints
+@app.post("/api/configure-wallet")
+async def configure_wallet(wallet_data: dict):
+    """Configure wallet for real trading"""
+    try:
+        private_key = wallet_data.get("private_key")
+        if not private_key:
+            return {"success": False, "error": "Private key required"}
+        
+        result = await ai_orchestrator.configure_wallet(private_key)
+        return result
+        
+    except Exception as e:
+        logger.error(f"Wallet configuration error: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/enable-auto-trading")
+async def enable_auto_trading(trading_data: dict):
+    """Enable/disable automatic trading"""
+    try:
+        enable = trading_data.get("enable", False)
+        result = await ai_orchestrator.enable_auto_trading(enable)
+        return result
+        
+    except Exception as e:
+        logger.error(f"Auto trading toggle error: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/manual-trade")
+async def manual_trade(trade_data: dict):
+    """Execute manual trade"""
+    try:
+        result = await ai_orchestrator.manual_trade_execution(trade_data)
+        return result
+        
+    except Exception as e:
+        logger.error(f"Manual trade error: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.get("/api/trading-status")
+async def get_trading_status():
+    """Get current trading system status"""
+    try:
+        status = await ai_orchestrator.get_trading_status()
+        return status
+        
+    except Exception as e:
+        logger.error(f"Trading status error: {e}")
+        return {"error": str(e)}
+
+@app.post("/api/emergency-exit")
+async def emergency_exit():
+    """Emergency exit all positions"""
+    try:
+        await ai_orchestrator.position_manager.emergency_exit_all()
+        return {"success": True, "message": "Emergency exit executed"}
+        
+    except Exception as e:
+        logger.error(f"Emergency exit error: {e}")
+        return {"success": False, "error": str(e)}
 
 if __name__ == "__main__":
     print("🚀 Starting Quantum Degen Trading AI Swarm Server...")

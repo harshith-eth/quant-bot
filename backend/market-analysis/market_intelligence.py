@@ -125,7 +125,7 @@ class MarketIntelligence:
             if "data" in data:
                 global_data = data["data"]
                 self.market_data["total_market_cap"] = global_data.get("total_market_cap", {}).get("usd", 2350000000)
-                
+        
                 # Update market dominance
                 dominance = global_data.get("market_cap_percentage", {})
                 self.market_data["market_dominance"] = {

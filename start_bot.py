@@ -31,7 +31,7 @@ class TradingBotLauncher:
         self.venv_dir = self.base_dir / "venv"
         
     def display_banner(self):
-        banner = """
+banner = """
 🚀 QUANTUM DEGEN TRADING AI SWARM 🚀
 REAL AI-POWERED SOLANA TRADING SYSTEM
         
@@ -138,11 +138,11 @@ REAL AI-POWERED SOLANA TRADING SYSTEM
             
             if self.frontend_process.poll() is None:
                 console.print("[green]✅ Frontend dashboard started on http://localhost:3000[/green]")
-                return True
+        return True
             else:
                 console.print("[red]❌ Frontend failed to start[/red]")
-                return False
-                
+        return False
+
         except Exception as e:
             console.print(f"[red]❌ Error starting frontend: {e}[/red]")
             return False
@@ -230,8 +230,8 @@ REAL AI-POWERED SOLANA TRADING SYSTEM
             # Keep running until interrupted
             try:
                 while True:
-                    time.sleep(1)
-                    
+        time.sleep(1)
+        
                     # Check if processes are still running
                     if self.backend_process and self.backend_process.poll() is not None:
                         console.print("[red]❌ Backend process died[/red]")
