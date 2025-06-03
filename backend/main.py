@@ -8,6 +8,7 @@ import asyncio
 import json
 import time
 import httpx
+import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
@@ -58,10 +59,79 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager"""
     global ai_swarm
     
-    print("🚀 Starting Quantum Degen Trading AI Swarm...")
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler("trading_bot.log")
+        ]
+    )
+    
+    logger = logging.getLogger("MAIN")
+    logger.info("🚀 Starting Quantum Degen Trading AI Swarm...")
     
     # Initialize AI Swarm with real agents
     try:
+        # First initialize all modules individually with proper error handling
+        try:
+            logger.info("Initializing Position Manager...")
+            await position_manager.initialize()
+            logger.info("✅ Position Manager initialized successfully")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Position Manager: {e}")
+        
+        try:
+            logger.info("Initializing Neural Analyzer...")
+            await neural_analyzer.initialize()
+            logger.info("✅ Neural Analyzer initialized successfully")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Neural Analyzer: {e}")
+        
+        try:
+            logger.info("Initializing Market Intelligence...")
+            await market_intelligence.initialize()
+            logger.info("✅ Market Intelligence initialized successfully")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Market Intelligence: {e}")
+        
+        try:
+            logger.info("Initializing Token Hunter...")
+            await token_hunter.initialize()
+            logger.info("✅ Token Hunter initialized successfully")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Token Hunter: {e}")
+        
+        try:
+            logger.info("Initializing Portfolio Tracker...")
+            await portfolio_tracker.initialize()
+            logger.info("✅ Portfolio Tracker initialized successfully")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Portfolio Tracker: {e}")
+        
+        try:
+            logger.info("Initializing Risk Engine...")
+            await risk_engine.initialize()
+            logger.info("✅ Risk Engine initialized successfully")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Risk Engine: {e}")
+        
+        try:
+            logger.info("Initializing Signal Aggregator...")
+            await signal_aggregator.initialize()
+            logger.info("✅ Signal Aggregator initialized successfully")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Signal Aggregator: {e}")
+        
+        try:
+            logger.info("Initializing Whale Tracker...")
+            await whale_tracker.initialize()
+            logger.info("✅ Whale Tracker initialized successfully")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Whale Tracker: {e}")
+        
+        # Now initialize the AI Swarm Orchestrator with all modules
         agents = {
             'position_manager': position_manager,
             'neural_analyzer': neural_analyzer,
@@ -75,23 +145,29 @@ async def lifespan(app: FastAPI):
         
         ai_swarm = AISwarmOrchestrator(**agents)
         await ai_swarm.initialize()
-        print("✅ AI Swarm initialized successfully")
+        logger.info("✅ AI Swarm Orchestrator initialized successfully")
+        
+        # Configure WebSocket manager with the orchestrator for real-time updates
+        websocket_manager.ai_swarm = ai_swarm
         
         # Start background tasks for real data
+        logger.info("Starting background tasks for real-time data...")
         asyncio.create_task(real_data_monitor())
         asyncio.create_task(broadcast_updates())
+        logger.info("✅ Background tasks started successfully")
         
     except Exception as e:
-        print(f"❌ Failed to initialize AI Swarm: {e}")
+        logger.error(f"❌ Failed to initialize AI Swarm: {e}")
         ai_swarm = None
     
     yield
     
     # Cleanup
+    logger.info("🛑 Shutting down AI Swarm and background tasks...")
     if ai_swarm:
         await ai_swarm.shutdown()
     await http_client.aclose()
-    print("🛑 AI Swarm shutdown complete")
+    logger.info("✅ AI Swarm shutdown complete")
 
 # Create FastAPI app
 app = FastAPI(
@@ -136,61 +212,154 @@ async def health_check():
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time updates"""
-    await websocket_manager.connect(websocket)
+    logger = logging.getLogger("WS_ENDPOINT")
+    
     try:
+        await websocket_manager.connect(websocket)
+        logger.info(f"New WebSocket connection established. Total: {websocket_manager.get_connection_count()}")
+        
+        # Process subscription messages from client
         while True:
-            # Keep connection alive
-            await websocket.receive_text()
-    except WebSocketDisconnect:
+            try:
+                message = await websocket.receive_text()
+                try:
+                    data = json.loads(message)
+                    
+                    # Handle subscription requests
+                    if data.get('action') == 'subscribe' and 'channels' in data:
+                        channels = data.get('channels', [])
+                        if isinstance(channels, list):
+                            websocket_manager.subscribe_channels(websocket, channels)
+                            logger.info(f"Client subscribed to channels: {channels}")
+                            
+                            # Send confirmation
+                            await websocket.send_text(json.dumps({
+                                "type": "subscription_confirmed",
+                                "channels": channels
+                            }))
+                    
+                    # Handle ping/heartbeat
+                    elif data.get('action') == 'ping':
+                        await websocket.send_text(json.dumps({
+                            "type": "pong",
+                            "timestamp": datetime.now().isoformat()
+                        }))
+                        
+                except json.JSONDecodeError:
+                    logger.warning("Received invalid JSON from client")
+                    
+            except WebSocketDisconnect:
+                websocket_manager.disconnect(websocket)
+                logger.info(f"WebSocket disconnected. Total: {websocket_manager.get_connection_count()}")
+                break
+                
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
         websocket_manager.disconnect(websocket)
 
 @app.get("/api/portfolio-status")
-async def get_portfolio_status():
+async def get_portfolio_status_api():
     """Get current portfolio status"""
-    data = await portfolio_tracker.get_status()
-    return JSONResponse(content=data)
+    try:
+        tracker = PortfolioTracker()
+        return tracker.get_portfolio_status()
+    except Exception as e:
+        logger.error(f"Portfolio status error: {e}")
+        return JSONResponse(
+            content={"error": "Failed to load portfolio status"},
+            status_code=500
+        )
 
 @app.get("/api/active-positions")
-async def get_active_positions():
+async def get_active_positions_api():
     """Get active trading positions"""
-    data = await position_manager.get_active_positions()
-    return JSONResponse(content=data)
+    try:
+        manager = RealPositionManager()
+        return manager.get_active_positions()
+    except Exception as e:
+        logger.error(f"Active positions error: {e}")
+        return JSONResponse(
+            content={"error": "Failed to load positions", "positions": []},
+            status_code=500
+        )
 
 @app.get("/api/whale-activity")
-async def get_whale_activity():
+async def get_whale_activity_api():
     """Get whale movement data"""
-    data = await whale_tracker.get_activity()
-    return JSONResponse(content=data)
+    try:
+        tracker = WhaleTracker()
+        return tracker.get_whale_activity()
+    except Exception as e:
+        logger.error(f"Whale activity error: {e}")
+        return JSONResponse(
+            content={"error": "Failed to load whale activity", "whales": []},
+            status_code=500
+        )
 
 @app.get("/api/meme-scanner")
-async def get_meme_scanner():
+async def get_meme_scanner_api():
     """Get meme token scanner data"""
-    data = await token_hunter.get_scanner_data()
-    return JSONResponse(content=data)
+    try:
+        hunter = TokenHunter()
+        return hunter.scan_meme_tokens()
+    except Exception as e:
+        logger.error(f"Meme scanner error: {e}")
+        return JSONResponse(
+            content={"error": "Failed to load meme scanner data", "tokens": []},
+            status_code=500
+        )
 
 @app.get("/api/signal-feed")
-async def get_signal_feed():
+async def get_signal_feed_api():
     """Get trading signals"""
-    data = await signal_aggregator.get_signals()
-    return JSONResponse(content=data)
+    try:
+        aggregator = SignalAggregator()
+        return aggregator.get_trading_signals()
+    except Exception as e:
+        logger.error(f"Signal feed error: {e}")
+        return JSONResponse(
+            content={"error": "Failed to load signal feed data", "signals": []},
+            status_code=500
+        )
 
 @app.get("/api/market-analysis")
-async def get_market_analysis():
+async def get_market_analysis_api():
     """Get market analysis data"""
-    data = await market_intelligence.get_analysis()
-    return JSONResponse(content=data)
+    try:
+        intelligence = MarketIntelligence()
+        return intelligence.get_market_data()
+    except Exception as e:
+        logger.error(f"Market analysis error: {e}")
+        return JSONResponse(
+            content={"error": "Failed to load market analysis data", "market": {"price": 0, "volume": 0, "volatility": 0, "trend": "", "support_levels": [], "resistance_levels": []}},
+            status_code=500
+        )
 
 @app.get("/api/ai-analysis")
-async def get_ai_analysis():
+async def get_ai_analysis_api():
     """Get AI analysis data"""
-    data = await neural_analyzer.get_analysis()
-    return JSONResponse(content=data)
+    try:
+        analyzer = NeuralAnalyzer()
+        return analyzer.get_ai_analysis()
+    except Exception as e:
+        logger.error(f"AI analysis error: {e}")
+        return JSONResponse(
+            content={"error": "AI analysis unavailable", "analysis": {"sentiment": "", "technical_signals": [], "predictions": [], "confidence": 0}},
+            status_code=500
+        )
 
 @app.get("/api/risk-management")
-async def get_risk_management():
+async def get_risk_management_api():
     """Get risk management data"""
-    data = await risk_engine.get_risk_analysis()
-    return JSONResponse(content=data)
+    try:
+        engine = RiskEngine()
+        return engine.get_risk_metrics()
+    except Exception as e:
+        logger.error(f"Risk management error: {e}")
+        return JSONResponse(
+            content={"error": "Failed to load risk management data", "risk": {"portfolio_risk": 0, "position_limits": {}, "stop_losses": [], "risk_score": 0}},
+            status_code=500
+        )
 
 @app.post("/api/execute-trade")
 async def execute_trade(trade_data: dict):
@@ -229,52 +398,122 @@ async def update_position(position_data: dict):
 # Background task to monitor real data
 async def real_data_monitor():
     """Monitor real market data and update systems"""
-    print("🔄 Starting real data monitoring...")
+    logger = logging.getLogger("REAL_DATA_MONITOR")
+    logger.info("🔄 Starting real data monitoring...")
     
     while True:
         try:
             # Run AI swarm processing
             if ai_swarm and ai_swarm.is_running:
-                await ai_swarm.run_swarm()
+                # This would normally call run_swarm, but we'll check if it exists first
+                if hasattr(ai_swarm, 'run_swarm'):
+                    await ai_swarm.run_swarm()
+                # Use the orchestration loop instead if run_swarm doesn't exist
+                else:
+                    # The orchestration loop is handled internally by AI swarm initialization
+                    pass
+            
+            # Fetch and update market data
+            try:
+                sol_price = await fetch_solana_price()
+                logger.debug(f"Updated SOL price: ${sol_price}")
+            except Exception as e:
+                logger.warning(f"Failed to update SOL price: {e}")
+            
+            # Fetch trending tokens data
+            try:
+                tokens_data = await fetch_dex_tokens()
+                if tokens_data and len(tokens_data) > 0:
+                    logger.debug(f"Fetched {len(tokens_data)} trending tokens")
+            except Exception as e:
+                logger.warning(f"Failed to fetch trending tokens: {e}")
+            
+            # Update whale transactions data
+            try:
+                whale_txs = await fetch_whale_transactions()
+                if whale_txs and len(whale_txs) > 0:
+                    logger.debug(f"Fetched {len(whale_txs)} whale transactions")
+            except Exception as e:
+                logger.warning(f"Failed to fetch whale transactions: {e}")
             
             await asyncio.sleep(settings.PRICE_UPDATE_INTERVAL)
             
         except Exception as e:
-            print(f"Error in real data monitoring: {e}")
+            logger.error(f"Error in real data monitoring: {e}")
             await asyncio.sleep(10)
 
 # Background task to broadcast updates
 async def broadcast_updates():
     """Broadcast real-time updates to connected WebSocket clients"""
+    logger = logging.getLogger("BROADCAST")
+    logger.info("📡 Starting WebSocket broadcaster...")
+    
     while True:
         try:
-            # Broadcast portfolio update
-            portfolio_data = await portfolio_tracker.get_status()
-            await websocket_manager.broadcast_to_all({
-                "type": "portfolio_update",
-                "data": portfolio_data
-            })
+            if websocket_manager.get_connection_count() > 0:
+                logger.debug(f"Broadcasting to {websocket_manager.get_connection_count()} clients")
+                
+                # Broadcast portfolio update with proper error handling
+                try:
+                    portfolio_data = await portfolio_tracker.get_status()
+                    await websocket_manager.broadcast_to_channel('portfolio_status', portfolio_data)
+                except Exception as e:
+                    logger.error(f"Failed to broadcast portfolio data: {e}")
+                
+                # Broadcast latest signals with proper error handling
+                try:
+                    signal_data = await signal_aggregator.get_signals()
+                    await websocket_manager.broadcast_to_channel('signal_feed', signal_data)
+                except Exception as e:
+                    logger.error(f"Failed to broadcast signals: {e}")
+                
+                # Broadcast whale activity with proper error handling
+                try:
+                    whale_data = await whale_tracker.get_activity()
+                    await websocket_manager.broadcast_to_channel('whale_activity', whale_data)
+                except Exception as e:
+                    logger.error(f"Failed to broadcast whale activity: {e}")
+                
+                # Broadcast market analysis with proper error handling
+                try:
+                    market_data = await market_intelligence.get_analysis()
+                    await websocket_manager.broadcast_to_channel('market_analysis', market_data)
+                except Exception as e:
+                    logger.error(f"Failed to broadcast market analysis: {e}")
+                
+                # Broadcast AI analysis with proper error handling
+                try:
+                    ai_data = await neural_analyzer.get_analysis()
+                    await websocket_manager.broadcast_to_channel('ai_analysis', ai_data)
+                except Exception as e:
+                    logger.error(f"Failed to broadcast AI analysis: {e}")
+                
+                # Broadcast active positions with proper error handling
+                try:
+                    positions_data = await position_manager.get_active_positions()
+                    await websocket_manager.broadcast_to_channel('active_positions', positions_data)
+                except Exception as e:
+                    logger.error(f"Failed to broadcast active positions: {e}")
+                
+                # Broadcast risk management data with proper error handling
+                try:
+                    risk_data = await risk_engine.get_risk_analysis()
+                    await websocket_manager.broadcast_to_channel('risk_management', risk_data)
+                except Exception as e:
+                    logger.error(f"Failed to broadcast risk management data: {e}")
+                
+                # Broadcast meme scanner data with proper error handling
+                try:
+                    meme_data = await token_hunter.get_scanner_data()
+                    await websocket_manager.broadcast_to_channel('meme_scanner', meme_data)
+                except Exception as e:
+                    logger.error(f"Failed to broadcast meme scanner data: {e}")
             
-            # Broadcast latest signals
-            signal_data = await signal_aggregator.get_signals()
-            if signal_data.get("live_signals"):
-                await websocket_manager.broadcast_to_all({
-                    "type": "signal_update",
-                    "data": signal_data["live_signals"][:5]  # Latest 5 signals
-                })
-            
-            # Broadcast whale activity
-            whale_data = await whale_tracker.get_activity()
-            if whale_data.get("recent_activity"):
-                await websocket_manager.broadcast_to_all({
-                    "type": "whale_update",
-                    "data": whale_data["recent_activity"][:3]  # Latest 3 activities
-                })
-            
-            await asyncio.sleep(5)  # Broadcast every 5 seconds
+            # Update every 5 seconds
+            await asyncio.sleep(5)
             
         except Exception as e:
-            print(f"Error in broadcast: {e}")
+            logger.error(f"Error in broadcast: {e}")
             await asyncio.sleep(10)
 
 async def fetch_solana_price():

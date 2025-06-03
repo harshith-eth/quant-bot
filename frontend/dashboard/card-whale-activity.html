@@ -361,11 +361,95 @@
 </style>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Get all filter buttons and whale items
-    const filterButtons = document.querySelectorAll('.filter-btn');
-    const whaleItems = document.querySelectorAll('.whale-item');
+// Fetch and display real whale activity
+async function loadWhaleActivity(preloadedData = null) {
+    try {
+        let data;
+        if (preloadedData) {
+            // Use preloaded data from WebSocket
+            data = preloadedData;
+            console.log('Using preloaded whale data from WebSocket');
+        } else {
+            // Fetch from API
+            const response = await fetch('/api/whale-activity');
+            data = await response.json();
+            console.log('Whale activity data loaded from API');
+        }
 
+        // Update whale statistics in header
+        const headerStats = document.querySelector('h2 > span');
+        if (headerStats && data.stats) {
+            headerStats.textContent = `${data.stats.volume || '25K'}VOL ${data.stats.moves || '47'}MOVES ${data.stats.hot_token || '$PEPE2HOT'}`;
+        }
+
+        // Update whale feed with real data
+        const whaleFeed = document.getElementById('whale-feed');
+        if (whaleFeed && data.movements) {
+            whaleFeed.innerHTML = '';
+            
+            if (data.movements.length > 0) {
+                data.movements.forEach(movement => {
+                    const whaleItem = document.createElement('div');
+                    whaleItem.className = `whale-item ${movement.action.toLowerCase()}`;
+                    
+                    whaleItem.innerHTML = `
+                        <div class="col wallet">${movement.wallet || '0x000...000'}</div>
+                        <div class="col action">${movement.action || 'Unknown'}</div>
+                        <div class="col amount">${movement.amount || '0 SOL'}</div>
+                        <div class="col impact ${movement.impact_level.toLowerCase() || 'low'}">${movement.impact_level || 'Low'}</div>
+                    `;
+                    
+                    whaleFeed.appendChild(whaleItem);
+                });
+            } else {
+                // Show empty state
+                const emptyState = document.createElement('div');
+                emptyState.className = 'whale-empty';
+                emptyState.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #888;">
+                        No whale activity detected
+                    </div>
+                `;
+                whaleFeed.appendChild(emptyState);
+            }
+        }
+
+        // Update pressure metrics
+        if (data.metrics) {
+            document.getElementById('whale-buy-pressure').textContent = data.metrics.buy_pressure || '65%';
+            document.getElementById('whale-sell-pressure').textContent = data.metrics.sell_pressure || '35%';
+            
+            document.getElementById('buy-pressure-fill').style.width = data.metrics.buy_pressure || '65%';
+            document.getElementById('sell-pressure-fill').style.width = data.metrics.sell_pressure || '35%';
+        }
+        
+    } catch (error) {
+        console.error('Error loading whale activity:', error);
+        // Show error state
+        const whaleFeed = document.getElementById('whale-feed');
+        if (whaleFeed) {
+            whaleFeed.innerHTML = `
+                <div style="text-align: center; padding: 20px; color: #ff0000;">
+                    Error loading whale data
+                </div>
+            `;
+        }
+    }
+}
+
+// Make function globally available
+window.loadWhaleActivity = loadWhaleActivity;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Load initial data
+    loadWhaleActivity();
+    
+    // Set up auto-refresh
+    setInterval(loadWhaleActivity, 8000);
+    
+    // Get all filter buttons and set up filtering
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    
     // Add click event listeners to all filter buttons
     filterButtons.forEach(button => {
         button.addEventListener('click', function() {
@@ -379,6 +463,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const filterType = this.textContent.toLowerCase();
 
             // Show/hide whale items based on filter
+            const whaleItems = document.querySelectorAll('.whale-item');
             whaleItems.forEach(item => {
                 if (filterType === 'all') {
                     item.style.display = 'grid';

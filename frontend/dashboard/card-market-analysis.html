@@ -914,16 +914,200 @@ setInterval(loadMarketAnalysis, 15000);
 </style>
 
 <script>
-// Animate the cycle needle
-setInterval(() => {
-    const needle = document.querySelector('.cycle-needle');
-    const rotation = Math.random() * 180;
-    needle.style.transform = `rotate(${rotation}deg)`;
-}, 4000);
+// Fetch and display real market analysis data
+async function loadMarketAnalysis(preloadedData = null) {
+    try {
+        let data;
+        if (preloadedData) {
+            // Use preloaded data from WebSocket
+            data = preloadedData;
+            console.log('Using preloaded market analysis data from WebSocket');
+        } else {
+            // Fetch from API
+            const response = await fetch('/api/market-analysis');
+            data = await response.json();
+            console.log('Market analysis data loaded from API');
+        }
+        
+        // Update header stats with real data
+        const marketStats = document.getElementById('market-stats');
+        if (marketStats && data.market_overview) {
+            marketStats.textContent = `FOMO: ${data.market_overview.fear_greed} » TREND: ${data.market_overview.sentiment} » RSI: ${data.technical_analysis?.rsi_1h || '72'}`;
+        }
+        
+        // Update retard strength index if exists
+        if (data.market && data.market.strength_metrics) {
+            const strengthFill = document.querySelector('.strength-meter .fill');
+            const currentLabel = document.querySelector('.meter-labels .current');
+            
+            if (strengthFill) {
+                strengthFill.style.width = `${data.market.strength_metrics.strength_index || 85}%`;
+            }
+            
+            if (currentLabel) {
+                currentLabel.textContent = data.market.strength_metrics.strength_level || 'RETARDED';
+            }
+            
+            // Update paper hands and diamond hands stats
+            const paperHandsValue = document.querySelector('.strength-stats .stat:nth-child(1) .value');
+            const diamondHandsValue = document.querySelector('.strength-stats .stat:nth-child(2) .value');
+            
+            if (paperHandsValue) {
+                paperHandsValue.textContent = data.market.strength_metrics.paper_hands_ratio || '-69%';
+            }
+            
+            if (diamondHandsValue) {
+                diamondHandsValue.textContent = data.market.strength_metrics.diamond_hands_ratio || '+420%';
+            }
+        }
+        
+        // Update manipulation radar alerts if data exists
+        if (data.market && data.market.manipulation_alerts) {
+            const alertsContainer = document.querySelector('.manipulation-alerts');
+            
+            if (alertsContainer && data.market.manipulation_alerts.length > 0) {
+                alertsContainer.innerHTML = '';
+                
+                // Add first 2 alerts
+                data.market.manipulation_alerts.slice(0, 2).forEach(alert => {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert';
+                    alertDiv.innerHTML = `
+                        <span class="time">${alert.time || 'NOW'}</span>
+                        <span class="event">${alert.event || 'UNKNOWN EVENT'}</span>
+                        <span class="probability">${alert.probability || '90%'}</span>
+                    `;
+                    
+                    alertsContainer.appendChild(alertDiv);
+                });
+            }
+        }
+        
+        // Update market cycle data if it exists
+        if (data.market && data.market.cycle_data) {
+            const cycleData = data.market.cycle_data;
+            
+            // Update current stage
+            const stageBoxes = document.querySelectorAll('.stage-box');
+            stageBoxes.forEach(box => {
+                box.classList.remove('active', 'next');
+                
+                if (box.dataset.stage === cycleData.current_stage) {
+                    box.classList.add('active');
+                } else if (box.dataset.stage === cycleData.next_stage) {
+                    box.classList.add('next');
+                }
+            });
+            
+            // Update prediction value and time
+            const predictionValue = document.querySelector('.prediction-value');
+            const timeLeft = document.querySelector('.time-left');
+            
+            if (predictionValue) {
+                predictionValue.textContent = cycleData.next_prediction || 'ULTRA MOON';
+            }
+            
+            if (timeLeft) {
+                timeLeft.textContent = cycleData.time_estimate || '≈ 2.5 MINS';
+            }
+            
+            // Update cycle metrics
+            const normieFomo = document.querySelector('.cycle-metrics .metric:nth-child(1) .value');
+            const degenApe = document.querySelector('.cycle-metrics .metric:nth-child(2) .value');
+            const rugRisk = document.querySelector('.cycle-metrics .metric:nth-child(3) .value');
+            
+            if (normieFomo) {
+                normieFomo.textContent = cycleData.normie_fomo || '↗️ EXTREME';
+            }
+            
+            if (degenApe) {
+                degenApe.textContent = cycleData.degen_ape || '🔥 MAXIMUM';
+            }
+            
+            if (rugRisk) {
+                rugRisk.textContent = cycleData.rug_risk || '⚠️ HIGH AF';
+            }
+        }
+        
+        // Update Fibonacci levels if they exist
+        if (data.market && data.market.fibonacci) {
+            const fibData = data.market.fibonacci;
+            
+            // Update current price line
+            const currentLine = document.querySelector('.fib-line.current-line');
+            if (currentLine) {
+                const levelEl = currentLine.querySelector('.level');
+                const priceEl = currentLine.querySelector('.price');
+                
+                if (levelEl) {
+                    levelEl.textContent = fibData.current_level || '0.655';
+                }
+                
+                if (priceEl) {
+                    priceEl.textContent = fibData.current_price || '$124.30';
+                }
+            }
+            
+            // Update support and resistance info
+            const supportLevel = document.querySelector('.support-box .level-value');
+            const resistanceLevel = document.querySelector('.resistance-box .level-value');
+            
+            if (supportLevel) {
+                supportLevel.textContent = fibData.support || '0.618 → $126.80';
+            }
+            
+            if (resistanceLevel) {
+                resistanceLevel.textContent = fibData.resistance || '0.786 → $132.45';
+            }
+            
+            // Update trend analysis
+            const trendSpan = document.querySelector('.trend-box .trend');
+            if (trendSpan) {
+                trendSpan.textContent = fibData.trend || 'BEARISH RETRACEMENT';
+            }
+            
+            // Update pattern formation
+            const patternSpan = document.querySelector('.pattern-box .pattern');
+            const completionSpan = document.querySelector('.pattern-box .completion');
+            
+            if (patternSpan) {
+                patternSpan.textContent = fibData.pattern || 'HARMONIC BAT FORMING';
+            }
+            
+            if (completionSpan) {
+                completionSpan.textContent = fibData.completion || '68%';
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error loading market analysis:', error);
+        const marketStats = document.getElementById('market-stats');
+        if (marketStats) {
+            marketStats.textContent = 'ERROR LOADING DATA';
+            marketStats.style.color = '#ff0000';
+        }
+    }
+}
 
-// Update matrix rain
+// Make function globally available
+window.loadMarketAnalysis = loadMarketAnalysis;
+
+// Load on page ready
+document.addEventListener('DOMContentLoaded', loadMarketAnalysis);
+
+// Auto-refresh every 15 seconds
+setInterval(loadMarketAnalysis, 15000);
+
+// Animation for radar targets
 setInterval(() => {
-    const matrix = document.querySelector('.matrix-rain');
-    matrix.textContent = Math.random().toString(2).substr(2, 5);
-}, 200);
-</script> 
+    document.querySelectorAll('.target').forEach(target => {
+        const randomX = Math.floor(Math.random() * 20) - 10;
+        const randomY = Math.floor(Math.random() * 20) - 10;
+        target.style.transform = `translate(${randomX}px, ${randomY}px)`;
+        
+        setTimeout(() => {
+            target.style.transform = 'translate(0, 0)';
+        }, 2000);
+    });
+}, 4000);
+</script>

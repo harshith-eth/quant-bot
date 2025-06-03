@@ -82,29 +82,38 @@ class WhaleTracker:
         chars = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
         return ''.join(random.choice(chars) for _ in range(44))
     
-    async def get_activity(self) -> dict:
-        """Get whale activity data"""
-        await self._update_whale_data()
+    def get_whale_activity(self) -> dict:
+        """Get whale activity data in the exact format required"""
+        # Format whale activities to match the required structure
+        formatted_activities = []
         
-        return {
-            "live_tracking": {
-                "whales_active": len([w for w in self.whale_activities if w["time_ago"] in ["Just now", "1m", "2m"]]),
-                "total_tracked": self.tracking_stats["whales_tracked"],
-                "smart_money_count": self.tracking_stats["smart_money_wallets"],
-                "success_rate": f"{self.tracking_stats['success_rate']:.1f}%"
-            },
-            "recent_activity": self.whale_activities[:8],  # Last 8 activities
-            "top_performers": self._get_top_performers(),
-            "volume_analysis": {
-                "total_volume_24h": f"${self.tracking_stats['total_volume']:,}",
-                "buy_sell_ratio": "3.2:1",
-                "net_flow": "+$2.4M",
-                "dominant_action": "ACCUMULATION"
-            },
-            "alerts": self._get_whale_alerts(),
-            "smart_money_signals": self._get_smart_money_signals(),
-            "last_scan": self.last_scan.isoformat()
-        }
+        for activity in self.whale_activities[:10]:  # Get the most recent activities
+            # Extract wallet address
+            wallet = activity.get("wallet", "unknown")
+            
+            # Format transaction type
+            transaction = activity.get("action", "UNKNOWN")
+            
+            # Format amount
+            amount_str = activity.get("amount", "0 SOL")
+            amount = float(amount_str.split(' ')[0].replace(',', ''))
+            
+            # Format token
+            token = activity.get("token", "SOL")
+            
+            # Format timestamp
+            timestamp = activity.get("timestamp", datetime.now()).isoformat()
+            
+            formatted_activities.append({
+                "wallet": wallet,
+                "transaction": transaction,
+                "amount": amount,
+                "token": token,
+                "timestamp": timestamp
+            })
+        
+        # Return in the required format
+        return {"whales": formatted_activities}
     
     async def _update_whale_data(self):
         """Update whale activity data"""

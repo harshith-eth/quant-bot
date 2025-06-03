@@ -1,8 +1,8 @@
 """
-REAL POSITION MANAGER - ACTUAL TRADING EXECUTION
-=================================================
-Manages all active trading positions with REAL trade execution.
-NO MORE SIMULATION - THIS IS WHERE REAL MONEY MOVES.
+POSITION MANAGER MODULE - TRADING POSITIONS MANAGEMENT
+=====================================================
+Manages all active trading positions with real trade execution.
+Contains both base PositionManager and RealPositionManager implementations.
 """
 
 import asyncio
@@ -50,8 +50,94 @@ class RealPosition:
     created_at: datetime
     updated_at: datetime
 
+class PositionManager:
+    """Base position manager class that delegates to RealPositionManager"""
+    
+    def __init__(self):
+        """Initialize the base position manager"""
+        self.real_manager = None
+        logger.info("🎯 POSITION MANAGER INITIALIZED")
+        
+    async def initialize(self):
+        """Initialize the position manager"""
+        logger.info("🚀 INITIALIZING POSITION MANAGER...")
+        
+        # Create and initialize real manager
+        self.real_manager = RealPositionManager()
+        await self.real_manager.initialize()
+        
+        logger.info("✅ POSITION MANAGER ONLINE")
+        
+    async def get_active_positions(self):
+        """Get all active positions data for frontend"""
+        if not self.real_manager:
+            logger.error("Position manager not initialized")
+            return {"positions": [], "active_count": "0/0", "error": "Not initialized"}
+        return await self.real_manager.get_active_positions()
+    
+    async def execute_buy_trade(self, token_mint: str, token_symbol: str, sol_amount: float, market_cap: str = "Unknown") -> dict:
+        """Execute buy trade - delegates to real manager"""
+        if not self.real_manager:
+            logger.error("Position manager not initialized")
+            return {"success": False, "error": "Position manager not initialized"}
+        return await self.real_manager.execute_buy_trade(token_mint, token_symbol, sol_amount, market_cap)
+    
+    async def execute_sell_trade(self, position_id: str, sell_percentage: float = 100.0) -> dict:
+        """Execute sell trade - delegates to real manager"""
+        if not self.real_manager:
+            logger.error("Position manager not initialized")
+            return {"success": False, "error": "Position manager not initialized"}
+        return await self.real_manager.execute_sell_trade(position_id, sell_percentage)
+    
+    async def close_position(self, position_id: str, reason: str = "Manual close") -> dict:
+        """Close position by selling all tokens"""
+        if not self.real_manager:
+            logger.error("Position manager not initialized")
+            return {"success": False, "error": "Position manager not initialized"}
+        return await self.real_manager.close_position(position_id, reason)
+    
+    async def emergency_exit_all(self):
+        """Emergency exit all positions"""
+        if not self.real_manager:
+            logger.error("Position manager not initialized")
+            return
+        await self.real_manager.emergency_exit_all()
+    
+    async def check_exit_conditions(self) -> List[dict]:
+        """Check for automatic exit conditions"""
+        if not self.real_manager:
+            return []
+        return await self.real_manager.check_exit_conditions()
+    
+    async def execute_auto_actions(self):
+        """Execute automatic stop loss and take profit actions"""
+        if not self.real_manager:
+            return
+        await self.real_manager.execute_auto_actions()
+    
+    def get_metrics(self) -> dict:
+        """Get position manager metrics"""
+        if not self.real_manager:
+            return {
+                "active_positions": 0,
+                "total_pl": 0.0,
+                "winning_rate": 0.0,
+                "wallet_balance": 0.0,
+                "wallet_configured": False,
+                "last_update": datetime.now().isoformat()
+            }
+        return self.real_manager.get_metrics()
+    
+    async def shutdown(self):
+        """Shutdown position manager"""
+        logger.info("🛑 SHUTTING DOWN POSITION MANAGER...")
+        if self.real_manager:
+            await self.real_manager.shutdown()
+        logger.info("✅ POSITION MANAGER SHUTDOWN COMPLETE")
+
+
 class RealPositionManager:
-    """Manages all active trading positions with REAL execution"""
+    """Manages all active trading positions with real execution"""
     
     def __init__(self):
         self.positions: Dict[str, RealPosition] = {}
@@ -98,9 +184,9 @@ class RealPositionManager:
         except Exception as e:
             logger.error(f"Error updating wallet balance: {e}")
     
-    async def get_active_positions(self) -> dict:
-        """Get all active positions data for frontend"""
-        positions_data = []
+    def get_active_positions(self) -> dict:
+        """Get all active positions data for frontend - returns data in the exact format required"""
+        positions = []
         
         for position in self.positions.values():
             # Update time elapsed
@@ -108,36 +194,17 @@ class RealPositionManager:
             minutes = int(time_diff.total_seconds() / 60)
             position.time_elapsed = f"{minutes}m"
             
-            # Update with real price data
-            await self._update_real_price(position)
-            
-            positions_data.append({
-                "id": position.id,
-                "token": position.token,
-                "market_cap": position.market_cap,
-                "entry_price": f"${position.entry_price:.8f}",
-                "size": f"{position.size_sol:.4f} SOL",
-                "pl_percent": f"{position.pl_percent:+.0f}%",
-                "pl_dollar": f"${position.pl_dollar:+.2f}",
-                "time_elapsed": position.time_elapsed,
-                "action_button": position.action_button,
-                "status": position.status.value,
+            # Format position for the API response
+            positions.append({
+                "symbol": position.token,
+                "size": position.size_sol,
+                "entry_price": position.entry_price,
                 "current_price": position.current_price,
-                "profit_class": "profit" if position.pl_percent > 0 else "loss",
-                "transaction_id": position.transaction_id,
-                "token_amount": position.token_amount
+                "pnl": position.pl_dollar,
+                "timestamp": position.created_at.isoformat()
             })
         
-        return {
-            "positions": positions_data,
-            "active_count": f"{self.active_count}/{self.max_positions}",
-            "total_pl": sum(pos.pl_dollar for pos in self.positions.values()),
-            "winning_positions": len([p for p in self.positions.values() if p.pl_percent > 0]),
-            "losing_positions": len([p for p in self.positions.values() if p.pl_percent < 0]),
-            "wallet_balance": f"{self.wallet_balance:.4f} SOL",
-            "wallet_configured": self.wallet_configured,
-            "last_update": self.last_update.isoformat()
-        }
+        return {"positions": positions}
     
     async def _update_real_price(self, position: RealPosition):
         """Update position with real market price data"""

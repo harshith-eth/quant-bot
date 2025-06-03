@@ -123,6 +123,9 @@
         async function initialize() {
             await loadCards();
             
+            // Execute scripts from loaded cards
+            executeCardScripts();
+            
             // Load dashboard controller first
             const dashboardScript = document.createElement('script');
             dashboardScript.src = './dashboard.js';
@@ -132,6 +135,32 @@
             const script = document.createElement('script');
             script.src = './script.js';
             document.body.appendChild(script);
+        }
+        
+        // Function to execute scripts from the loaded cards
+        function executeCardScripts() {
+            const cards = document.querySelectorAll('.card');
+            
+            cards.forEach(card => {
+                // Find all script tags in the card
+                const scripts = card.querySelectorAll('script');
+                
+                scripts.forEach(script => {
+                    // Create a new script element
+                    const newScript = document.createElement('script');
+                    
+                    // Copy attributes
+                    Array.from(script.attributes).forEach(attr => {
+                        newScript.setAttribute(attr.name, attr.value);
+                    });
+                    
+                    // Copy the content
+                    newScript.textContent = script.textContent;
+                    
+                    // Replace the old script with the new one
+                    script.parentNode.replaceChild(newScript, script);
+                });
+            });
         }
 
         // Start initialization when page loads

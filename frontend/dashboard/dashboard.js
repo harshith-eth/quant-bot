@@ -44,8 +44,9 @@ class DashboardController {
     connectWebSocket() {
         try {
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
+            const wsUrl = `${wsProtocol}//${window.location.hostname}:8000/ws`; // Use explicit port 8000
             
+            console.log(`Connecting to WebSocket at: ${wsUrl}`);
             this.websocket = new WebSocket(wsUrl);
             
             this.websocket.onopen = () => {
@@ -53,11 +54,15 @@ class DashboardController {
                 this.isConnected = true;
                 this.reconnectAttempts = 0;
                 this.updateConnectionStatus(true);
+                
+                // Subscribe to all data channels after connection
+                this.subscribeToChannels();
             };
             
             this.websocket.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
+                    console.log('WebSocket message received:', data.type);
                     this.handleWebSocketMessage(data);
                 } catch (error) {
                     console.error('WebSocket message error:', error);
@@ -83,6 +88,33 @@ class DashboardController {
         }
     }
     
+    // Subscribe to all data channels
+    subscribeToChannels() {
+        if (!this.isConnected || !this.websocket) {
+            console.warn('Cannot subscribe: WebSocket not connected');
+            return;
+        }
+        
+        const channels = [
+            'portfolio_status',
+            'active_positions',
+            'ai_analysis',
+            'market_analysis',
+            'meme_scanner',
+            'risk_management',
+            'signal_feed',
+            'whale_activity'
+        ];
+        
+        // Send subscription request
+        this.websocket.send(JSON.stringify({
+            action: 'subscribe',
+            channels: channels
+        }));
+        
+        console.log('Subscribed to channels:', channels);
+    }
+    
     attemptReconnect() {
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
@@ -100,27 +132,100 @@ class DashboardController {
         console.log('📨 WebSocket Message:', data.type);
         
         switch (data.type) {
-            case 'position_update':
+            case 'connection_established':
+                console.log('Connection established with server, available channels:', data.available_channels);
+                break;
+                
+            case 'subscription_confirmed':
+                console.log('Subscription confirmed for channels:', data.channels);
+                break;
+                
+            case 'data_update':
+                console.log(`Data update received for channel: ${data.channel}`);
+                this.handleDataUpdate(data.channel, data.data);
+                break;
+            
+            case 'broadcast':
+                console.log('Broadcast message received');
+                this.handleBroadcast(data.data);
+                break;
+                
+            case 'alert':
+                console.log(`Alert received: ${data.alert_type} - ${data.message}`);
+                this.showAlert(data.alert_type, data.message, data.severity);
+                break;
+                
+            case 'pong':
+                // Handle heartbeat response
+                this.lastPong = new Date();
+                break;
+                
+            default:
+                console.log('Unknown message type:', data.type);
+        }
+    }
+    
+    // Handle data updates for specific channels
+    handleDataUpdate(channel, data) {
+        switch(channel) {
+            case 'portfolio_status':
+                window.loadPortfolioStatus && window.loadPortfolioStatus(data);
+                break;
+            case 'active_positions':
+                window.loadActivePositions && window.loadActivePositions(data);
+                break;
+            case 'ai_analysis':
+                window.loadAIAnalysis && window.loadAIAnalysis(data);
+                break;
+            case 'market_analysis':
+                window.loadMarketAnalysis && window.loadMarketAnalysis(data);
+                break;
+            case 'whale_activity':
+                window.loadWhaleActivity && window.loadWhaleActivity(data);
+                break;
+            case 'signal_feed':
+                window.loadSignalFeed && window.loadSignalFeed(data);
+                break;
+            case 'meme_scanner':
+                window.loadMemeScanner && window.loadMemeScanner(data);
+                break;
+            case 'risk_management':
+                window.loadRiskManagement && window.loadRiskManagement(data);
+                break;
+            default:
+                console.log(`No handler for channel: ${channel}`);
+        }
+    }
+    
+    // Handle broadcast messages
+    handleBroadcast(data) {
+        const type = data?.type;
+        
+        switch(type) {
+            case 'portfolio_update':
+                window.loadPortfolioStatus && window.loadPortfolioStatus(data.data);
+                break;
+            case 'position_updated':
+            case 'trade_executed':
                 window.loadActivePositions && window.loadActivePositions();
-                break;
-            case 'ai_update':
-                window.loadAIAnalysis && window.loadAIAnalysis();
-                break;
-            case 'market_update':
-                window.loadMarketAnalysis && window.loadMarketAnalysis();
-                break;
-            case 'whale_update':
-                window.loadWhaleActivity && window.loadWhaleActivity();
                 break;
             case 'signal_update':
                 window.loadSignalFeed && window.loadSignalFeed();
                 break;
-            case 'scanner_update':
-                window.loadMemeScanner && window.loadMemeScanner();
+            case 'whale_update':
+                window.loadWhaleActivity && window.loadWhaleActivity();
                 break;
             default:
-                console.log('Unknown message type:', data.type);
+                console.log('Unknown broadcast type:', type);
         }
+    }
+    
+    // Show alerts from the server
+    showAlert(alertType, message, severity) {
+        // Implement alert UI as needed
+        console.log(`[${severity.toUpperCase()}] ${alertType}: ${message}`);
+        
+        // Could implement a visual alert system here
     }
     
     startDataRefresh() {
@@ -245,8 +350,20 @@ class DashboardController {
     sendMessage(message) {
         if (this.websocket && this.isConnected) {
             this.websocket.send(JSON.stringify(message));
+            return true;
         } else {
             console.warn('Cannot send message: WebSocket not connected');
+            return false;
+        }
+    }
+    
+    // Send heartbeat to keep connection alive
+    sendHeartbeat() {
+        if (this.sendMessage({
+            action: 'ping',
+            timestamp: new Date().toISOString()
+        })) {
+            console.debug('Heartbeat sent');
         }
     }
     

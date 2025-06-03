@@ -474,3 +474,94 @@
     font-size: 1.24vh;
 }
 </style>
+
+<script>
+// Fetch and display real portfolio status
+async function loadPortfolioStatus(preloadedData = null) {
+    try {
+        let data;
+        if (preloadedData) {
+            // Use preloaded data from WebSocket
+            data = preloadedData;
+            console.log('Using preloaded portfolio data from WebSocket');
+        } else {
+            // Fetch from API
+            const response = await fetch('http://localhost:8000/api/portfolio-status');
+            data = await response.json();
+            console.log('Portfolio data loaded from API');
+        }
+
+        // Update balance overview
+        if (data.portfolio) {
+            // Update current balance
+            document.getElementById('current-balance').textContent = data.portfolio.current_balance || '$25.00';
+            document.getElementById('available-balance').textContent = data.portfolio.available_balance || '$25.00';
+            document.getElementById('allocated-balance').textContent = data.portfolio.allocated_balance || '$0.00';
+            
+            // Update progress toward target
+            const initialBalance = 25; // Initial balance in dollars
+            const targetBalance = 20000; // Target balance in dollars
+            const currentBalance = parseFloat((data.portfolio.current_balance || '25').replace(/[^0-9.]/g, ''));
+            const progressPercentage = ((currentBalance - initialBalance) / (targetBalance - initialBalance)) * 100;
+            const progressCapped = Math.min(Math.max(progressPercentage, 0.1), 100); // Min 0.1%, max 100%
+            
+            document.querySelector('.header-progress-fill').style.width = `${progressPercentage.toFixed(2)}%`;
+            document.getElementById('gain-needed').textContent = `${((targetBalance / currentBalance - 1) * 100).toFixed(2)}%`;
+            
+            // Update performance stats
+            document.getElementById('daily-pl').textContent = data.portfolio.daily_pl || '0.00%';
+            document.getElementById('total-roi').textContent = data.portfolio.total_roi || '0.00%';
+            document.getElementById('win-rate').textContent = data.portfolio.win_rate || '0/0';
+            document.getElementById('avg-profit').textContent = data.portfolio.avg_profit || '0.00%';
+            
+            // Update trade history
+            document.getElementById('best-trade').textContent = data.portfolio.best_trade || '0.00%';
+            document.getElementById('worst-trade').textContent = data.portfolio.worst_trade || '0.00%';
+            document.getElementById('max-drawdown').textContent = data.portfolio.max_drawdown || '0.00%';
+            document.getElementById('portfolio-heat').textContent = data.portfolio.risk_level || 'LOW';
+            
+            // Update take profit levels
+            if (data.portfolio.tp_levels && data.portfolio.tp_levels.length >= 3) {
+                const tpLevels = document.querySelectorAll('.tp-value');
+                const tpStatuses = document.querySelectorAll('.tp-status');
+                
+                for (let i = 0; i < Math.min(tpLevels.length, data.portfolio.tp_levels.length); i++) {
+                    const level = data.portfolio.tp_levels[i];
+                    tpLevels[i].textContent = level.value || `$${((i + 2) * 25).toFixed(2)}`;
+                    tpStatuses[i].textContent = level.status || 'Waiting';
+                    
+                    // Update classes based on status
+                    tpLevels[i].className = 'tp-value';
+                    if (level.status === 'Reached') {
+                        tpLevels[i].classList.add('success');
+                    } else if (level.status === 'Close') {
+                        tpLevels[i].classList.add('warning', 'pulse');
+                    } else {
+                        tpLevels[i].classList.add('tp-waiting');
+                    }
+                }
+            }
+            
+            // Update allocation bars
+            const availablePercentage = (data.portfolio.available_percentage || 100);
+            const allocatedPercentage = (data.portfolio.allocated_percentage || 0);
+            
+            document.querySelector('.allocation-bar:nth-child(1) .bar-fill').style.width = `${availablePercentage}%`;
+            document.querySelector('.allocation-bar:nth-child(2) .bar-fill').style.width = `${allocatedPercentage}%`;
+        }
+        
+    } catch (error) {
+        console.error('Error loading portfolio status:', error);
+        // Show error state if needed
+    }
+}
+
+// Make function globally available
+window.loadPortfolioStatus = loadPortfolioStatus;
+
+// Load on page ready
+document.addEventListener('DOMContentLoaded', loadPortfolioStatus);
+
+// Auto-refresh every 30 seconds
+setInterval(loadPortfolioStatus, 30000);
+</script>

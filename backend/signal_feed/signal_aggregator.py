@@ -74,26 +74,27 @@ class SignalAggregator:
         except Exception as e:
             logger.error(f"Error fetching real signals: {e}")
     
-    async def get_signals(self) -> dict:
-        """Get aggregated signals"""
-        await self._update_signals()
+    def get_trading_signals(self) -> dict:
+        """Get trading signals in the exact format required"""
+        # Format signals to match the required format
+        formatted_signals = []
         
-        return {
-            "live_signals": self.signals[:10],  # Last 10 signals
-            "signal_count": len(self.signals),
-            "high_priority_count": len([s for s in self.signals if s["priority"] == "HIGH"]),
-            "stats": {
-                "total_processed": self.signal_stats["total_signals"],
-                "accuracy_rate": f"{self.signal_stats['accuracy_rate']:.1f}%",
-                "avg_confidence": f"{self._calculate_avg_confidence():.1f}%"
-            },
-            "signal_sources": {
-                source: self._count_signals_by_source(source) 
-                for source in self.signal_sources
-            },
-            "recent_alerts": self._get_signal_alerts(),
-            "last_update": self.last_update.isoformat()
-        }
+        for signal in self.signals[:10]:  # Get the most recent signals
+            signal_type = signal.get("source", "UNKNOWN")
+            symbol = signal.get("token", "UNKNOWN")
+            action = signal.get("type", "MONITOR")
+            strength = signal.get("confidence", 50) / 100  # Convert to 0-1 scale
+            timestamp = signal.get("created_at", datetime.now()).isoformat()
+            
+            formatted_signals.append({
+                "type": signal_type,
+                "symbol": symbol,
+                "action": action,
+                "strength": strength,
+                "timestamp": timestamp
+            })
+        
+        return {"signals": formatted_signals}
     
     async def _update_signals(self):
         """Update signals with new data"""

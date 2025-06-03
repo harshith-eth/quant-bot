@@ -591,12 +591,219 @@
 </style>
 
 <script>
-// Update needle position
-setInterval(() => {
-    const needle = document.querySelector('.risk-management-container .needle');
-    if (needle) {
-        const rotation = Math.random() * 180;
-        needle.style.transform = `rotate(${rotation}deg)`;
+// Fetch and display real risk management data
+async function loadRiskManagement(preloadedData = null) {
+    try {
+        let data;
+        if (preloadedData) {
+            // Use preloaded data from WebSocket
+            data = preloadedData;
+            console.log('Using preloaded risk management data from WebSocket');
+        } else {
+            // Fetch from API
+            const response = await fetch('/api/risk-management');
+            data = await response.json();
+            console.log('Risk management data loaded from API');
+        }
+
+        // Update header stats
+        const headerStats = document.querySelector('h2 > span');
+        if (headerStats && data.risk) {
+            headerStats.textContent = `VaR: ${data.risk.var_value || '-$25.4K'} | SHARPE: ${data.risk.sharpe || '1.2'} | RISK: ${data.risk.risk_score || '7.5'}`;
+        }
+
+        // Update rug detection matrix
+        if (data.risk && data.risk.rug_metrics) {
+            const lpRiskBar = document.querySelector('.rug-indicator:nth-child(1) .progress');
+            if (lpRiskBar) {
+                lpRiskBar.style.width = `${data.risk.rug_metrics.lp_removal_risk || 75}%`;
+                
+                const riskValue = document.querySelector('.rug-indicator:nth-child(1) .value');
+                if (riskValue) {
+                    riskValue.textContent = data.risk.rug_metrics.lp_removal_level || 'CRITICAL';
+                }
+            }
+
+            const sellPressureBar = document.querySelector('.rug-indicator:nth-child(2) .progress');
+            if (sellPressureBar) {
+                sellPressureBar.style.width = `${data.risk.rug_metrics.sell_pressure || 45}%`;
+                
+                const pressureValue = document.querySelector('.rug-indicator:nth-child(2) .value');
+                if (pressureValue) {
+                    pressureValue.textContent = data.risk.rug_metrics.sell_pressure_level || 'MODERATE';
+                }
+            }
+
+            const rugScore = document.querySelector('.rug-score .score');
+            if (rugScore) {
+                rugScore.textContent = data.risk.rug_metrics.probability || '7.5/10';
+            }
+        }
+
+        // Update alpha detection grid
+        if (data.risk && data.risk.market_signals) {
+            const signals = data.risk.market_signals;
+            const signalItems = document.querySelectorAll('.signal-grid .signal-item');
+            
+            if (signalItems.length >= 4 && signals) {
+                // FOMO level
+                signalItems[0].querySelector('.value').textContent = signals.fomo_level || 'EXTREME';
+                
+                // Degen score
+                signalItems[1].querySelector('.value').textContent = signals.degen_score || '9.2/10';
+                
+                // Normie fear
+                signalItems[2].querySelector('.value').textContent = signals.normie_fear || 'HIGH';
+                
+                // Ape factor
+                signalItems[3].querySelector('.value').textContent = signals.ape_factor || 'FULL SEND';
+            }
+        }
+
+        // Update whale neural network
+        if (data.risk && data.risk.whale_psychology) {
+            const whaleMood = document.querySelector('.whale-mood');
+            if (whaleMood) {
+                whaleMood.textContent = data.risk.whale_psychology.mood || 'ACCUMULATING';
+            }
+            
+            const nextMove = document.querySelector('.next-move');
+            if (nextMove) {
+                nextMove.textContent = data.risk.whale_psychology.next_move || 'PUMP IMMINENT';
+            }
+        }
+
+        // Update liquidation matrix
+        if (data.risk && data.risk.liquidations) {
+            const liquidationFeed = document.querySelector('.liquidation-feed');
+            if (liquidationFeed && data.risk.liquidations.recent) {
+                const liquidations = data.risk.liquidations.recent;
+                let liquidationHTML = '';
+                
+                liquidations.forEach((liq, index) => {
+                    liquidationHTML += `
+                        <div class="liquidation">
+                            <span class="wallet">${liq.wallet || '0x7d..ff3'}</span>
+                            <span class="amount${index === 0 ? ' pulse' : ''}">${liq.amount || '-$42.0K'}</span>
+                            <span class="time">${liq.time || '2m ago'}</span>
+                        </div>
+                    `;
+                });
+                
+                // Add matrix grid at the end
+                liquidationHTML += '<div class="matrix-grid"></div>';
+                
+                liquidationFeed.innerHTML = liquidationHTML;
+            }
+            
+            // Update NGMI count and cope level
+            if (data.risk.liquidations.stats) {
+                const ngmiCount = document.querySelector('.rekt-stats .stat-box:nth-child(1) .value');
+                if (ngmiCount) {
+                    ngmiCount.textContent = data.risk.liquidations.stats.ngmi_count || '1,337';
+                }
+                
+                const copeLevel = document.querySelector('.rekt-stats .stat-box:nth-child(2) .value');
+                if (copeLevel) {
+                    copeLevel.textContent = data.risk.liquidations.stats.cope_level || 'MAXIMUM';
+                }
+            }
+        }
+
+        // Update quantum risk matrix
+        if (data.risk && data.risk.portfolio_metrics) {
+            const varValue = document.querySelector('.risk-indicator:nth-child(1) .risk-value');
+            if (varValue) {
+                varValue.textContent = data.risk.portfolio_metrics.var || '-$25,420 (95% CI)';
+            }
+            
+            const sharpeRatio = document.querySelector('.risk-indicator:nth-child(2) .risk-value');
+            if (sharpeRatio) {
+                sharpeRatio.textContent = data.risk.portfolio_metrics.sharpe || '1.2';
+            }
+            
+            // Update risk distribution
+            if (data.risk.portfolio_metrics.risk_distribution) {
+                const dist = data.risk.portfolio_metrics.risk_distribution;
+                const lowRisk = document.querySelector('.bar-segment.low');
+                const mediumRisk = document.querySelector('.bar-segment.medium');
+                const highRisk = document.querySelector('.bar-segment.high');
+                
+                if (lowRisk && mediumRisk && highRisk) {
+                    lowRisk.style.width = `${dist.low || 30}%`;
+                    mediumRisk.style.width = `${dist.medium || 45}%`;
+                    highRisk.style.width = `${dist.high || 25}%`;
+                }
+            }
+        }
+
+        // Update degen sentiment
+        if (data.risk && data.risk.degen_sentiment) {
+            const sentiment = data.risk.degen_sentiment;
+            const telegramCope = document.querySelector('.stat-row:nth-child(1) .value');
+            const discordSpam = document.querySelector('.stat-row:nth-child(2) .value');
+            const apeProbability = document.querySelector('.stat-row:nth-child(3) .value');
+            
+            if (telegramCope) {
+                telegramCope.textContent = sentiment.telegram_cope || 'OVERDOSE';
+            }
+            
+            if (discordSpam) {
+                discordSpam.textContent = sentiment.discord_spam || 'NUCLEAR';
+            }
+            
+            if (apeProbability) {
+                apeProbability.textContent = sentiment.ape_probability || '99.9%';
+            }
+        }
+
+        // Update market neural grid
+        if (data.risk && data.risk.market_indicators) {
+            const indicators = data.risk.market_indicators;
+            const volatilityIndex = document.querySelector('.market-risk-grid .risk-box:nth-child(1) .value');
+            const beta = document.querySelector('.market-risk-grid .risk-box:nth-child(2) .value');
+            const drawdown = document.querySelector('.market-risk-grid .risk-box:nth-child(3) .value');
+            const liquidity = document.querySelector('.market-risk-grid .risk-box:nth-child(4) .value');
+            
+            if (volatilityIndex) {
+                volatilityIndex.textContent = indicators.volatility || '32.5';
+            }
+            
+            if (beta) {
+                beta.textContent = indicators.beta || '1.45';
+            }
+            
+            if (drawdown) {
+                drawdown.textContent = indicators.drawdown || '-15.3%';
+            }
+            
+            if (liquidity) {
+                liquidity.textContent = indicators.liquidity || 'HIGH';
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error loading risk management data:', error);
     }
-}, 3000);
+}
+
+// Make function globally available
+window.loadRiskManagement = loadRiskManagement;
+
+// Load on page ready
+document.addEventListener('DOMContentLoaded', function() {
+    loadRiskManagement();
+    
+    // Set up auto-refresh
+    setInterval(loadRiskManagement, 20000);
+    
+    // Animate the brain wave effect by dynamically changing height
+    setInterval(() => {
+        const waves = document.querySelectorAll('.brain-waves .wave');
+        waves.forEach(wave => {
+            const height = 20 + Math.random() * 80;
+            wave.style.height = `${height}%`;
+        });
+    }, 500);
+});
 </script>

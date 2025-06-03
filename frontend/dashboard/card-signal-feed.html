@@ -370,112 +370,81 @@
 </style>
 
 <script>
-// Updated signal data structure with categories
-const signalData = {
-    market: [
-        {
-            timestamp: "11:32:45",
-            message: "$MOONBURN DETECTED\n• MC: $120K | LP: $25K\n• B/S Ratio: 5.2:1\n• Contract: ✅ SAFU",
-            type: "emergency"
-        },
-        {
-            timestamp: "11:43:15",
-            message: "$ZOOMPEPE DETECTED\n• MC: $175K | LP: $10K\n• B/S Ratio: 3.8:1",
-            type: "alert"
+// Fetch and display real signal feed data
+async function loadSignalFeed(preloadedData = null) {
+    try {
+        let data;
+        if (preloadedData) {
+            // Use preloaded data from WebSocket
+            data = preloadedData;
+            console.log('Using preloaded signal feed data from WebSocket');
+        } else {
+            // Fetch from API
+            const response = await fetch('/api/signal-feed');
+            data = await response.json();
+            console.log('Signal feed data loaded from API');
         }
-    ],
-    whale: [
-        {
-            timestamp: "11:31:23",
-            message: "WALLET: 3J87XYZ\n• Size: 150 SOL ($5000)\n• Token: $MOONBURN (12%)",
-            type: "alert"
-        },
-        {
-            timestamp: "11:35:50",
-            message: "WALLET: ZK32LMN\n• Size: 300 SOL ($12,000)\n• Action: EXIT",
-            type: "emergency"
+
+        // Update header stats
+        const headerStats = document.querySelector('h2 > span');
+        if (headerStats && data.stats) {
+            headerStats.textContent = `24H: ${data.stats.signals_24h || '2.4K'} » ACC: ${data.stats.accuracy || '92.4%'} » ALERTS: ${data.stats.active_alerts || '18'}`;
         }
-    ],
-    social: [
-        {
-            timestamp: "11:33:10",
-            message: "$FROGO\n• Twitter: 8,950 (+250%)\n• Sentiment: 78% BULLISH",
-            type: "normal"
-        },
-        {
-            timestamp: "11:44:00",
-            message: "TELEGRAM SPIKE\n• Groups: 12\n• Mentions: +400%",
-            type: "alert"
+
+        // Process signals by category
+        if (data.signals) {
+            // Clear existing signals or keep them if needed
+            // Iterate through each signal category
+            const categories = [
+                'market', 'whale', 'social', 'trade', 
+                'launch', 'rug', 'volume', 'momentum'
+            ];
+            
+            categories.forEach(category => {
+                if (data.signals[category] && data.signals[category].length > 0) {
+                    const feed = document.getElementById(`${category}-feed`);
+                    if (feed) {
+                        // Option 1: Clear existing signals and add new ones
+                        feed.innerHTML = '';
+                        
+                        // Add new signals in reverse order (newest first)
+                        data.signals[category].forEach(signal => {
+                            addSignalToSection(category, signal);
+                        });
+                    }
+                }
+            });
         }
-    ],
-    trade: [
-        {
-            timestamp: "11:40:03",
-            message: "SL HIT\n• $ZOOMPEPE: -30%\n• Balance: $18.50",
-            type: "emergency"
-        },
-        {
-            timestamp: "11:36:10",
-            message: "$FROGO\n• Price: +245%\n• Set SL: -15%",
-            type: "alert"
-        }
-    ],
-    launch: [
-        {
-            timestamp: "11:42:10",
-            message: "NEW LAUNCH\n• Token: $SOLAPEPE\n• Initial LP: $10K\n• Time: 2m ago",
-            type: "emergency"
-        },
-        {
-            timestamp: "11:41:05",
-            message: "LIQUIDITY ADDED\n• Token: $WOJAK\n• Amount: 25 SOL\n• Buyers: 45",
-            type: "alert"
-        }
-    ],
-    rug: [
-        {
-            timestamp: "11:42:30",
-            message: "RUG ALERT\n• Token: $RUGCOIN\n• LP UNLOCKED ⚠️\n• Rug Score: 85/100",
-            type: "emergency"
-        },
-        {
-            timestamp: "11:41:45",
-            message: "SAFU CHECK\n• Token: $MOONBURN\n• LP LOCKED ✅\n• Safety: 92/100",
-            type: "alert"
-        }
-    ],
-    volume: [
-        {
-            timestamp: "11:43:15",
-            message: "VOLUME SPIKE\n• $MOONBURN: +500%\n• Buy/Sell: 8:1\n• Liquidity: DEEP",
-            type: "emergency"
-        },
-        {
-            timestamp: "11:42:30",
-            message: "ACCUMULATION\n• Token: $PEPENOMICS\n• 5m Volume: $50K\n• Pattern: BULLISH",
-            type: "alert"
-        }
-    ],
-    momentum: [
-        {
-            timestamp: "11:43:30",
-            message: "BREAKOUT\n• $WOJAK: +120% 5m\n• Momentum: STRONG\n• FOMO Score: 85/100",
-            type: "emergency"
-        },
-        {
-            timestamp: "11:42:45",
-            message: "TREND ALERT\n• Multiple Buys\n• Price: PARABOLIC\n• Velocity: HIGH",
-            type: "alert"
-        }
-    ]
-};
+        
+    } catch (error) {
+        console.error('Error loading signal feed data:', error);
+        // Show error state if needed in each feed
+        const categories = [
+            'market', 'whale', 'social', 'trade', 
+            'launch', 'rug', 'volume', 'momentum'
+        ];
+        
+        categories.forEach(category => {
+            const feed = document.getElementById(`${category}-feed`);
+            if (feed) {
+                feed.innerHTML = `
+                    <div class="signal-entry">
+                        [<span class="timestamp">ERROR</span>] » Failed to load signals
+                    </div>
+                `;
+            }
+        });
+    }
+}
 
 // Function to add new signal to specific section
 function addSignalToSection(section, signal) {
     const feed = document.getElementById(`${section}-feed`);
+    if (!feed) return;
+    
     const entry = document.createElement('div');
-    entry.className = `signal-entry ${signal.type}`;
-    entry.innerHTML = `[<span class="timestamp">${signal.timestamp}</span>] » ${signal.message.replace(/\n/g, '<br>')}`;
+    entry.className = `signal-entry ${signal.type || 'normal'}`;
+    entry.innerHTML = `[<span class="timestamp">${signal.timestamp || getCurrentTime()}</span>] » ${signal.message.replace(/\n/g, '<br>')}`;
     feed.insertBefore(entry, feed.firstChild);
     
     // Keep only last 5 signals per section
@@ -487,20 +456,28 @@ function addSignalToSection(section, signal) {
     feed.scrollTop = 0;
 }
 
-// Simulate real-time updates for each section
-function simulateSignals() {
-    const sections = ['market', 'whale', 'social', 'trade', 'launch', 'rug', 'volume', 'momentum'];
-    sections.forEach(section => {
-        const signals = signalData[section];
-        let index = 0;
-        setInterval(() => {
-            if (index >= signals.length) index = 0;
-            addSignalToSection(section, signals[index]);
-            index++;
-        }, 7000 + Math.random() * 3000); // Random interval between 7-10 seconds
-    });
+// Helper to get current time in HH:MM:SS format
+function getCurrentTime() {
+    const now = new Date();
+    return now.toTimeString().split(' ')[0];
 }
 
-// Start simulation when page loads
-document.addEventListener('DOMContentLoaded', simulateSignals);
+// Provide a fallback for WebSocket notifications
+function handleWebSocketSignal(data) {
+    if (data && data.category && data.signal) {
+        addSignalToSection(data.category, data.signal);
+    }
+}
+
+// Make function globally available
+window.loadSignalFeed = loadSignalFeed;
+window.handleWebSocketSignal = handleWebSocketSignal;
+
+// Load signals on page ready
+document.addEventListener('DOMContentLoaded', function() {
+    loadSignalFeed();
+    
+    // Auto-refresh every 6 seconds
+    setInterval(loadSignalFeed, 6000);
+});
 </script>

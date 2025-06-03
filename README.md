@@ -24,7 +24,7 @@ cd quant-bot
 pip install -r requirements.txt
 
 # Run comprehensive tests
-python test_real_trading.py
+python project/tests/test_real_trading.py
 ```
 
 ### 2. Configure Real Trading
@@ -33,13 +33,13 @@ python test_real_trading.py
 # - Risk acknowledgment 
 # - Wallet configuration
 # - Trading parameters
-python setup_real_trading.py
+python project/scripts/setup_real_trading.py
 ```
 
 ### 3. Start Trading
 ```bash
 # Launch the real trading bot
-python start_bot.py
+python project/scripts/start_bot.py
 
 # Open dashboard
 # http://localhost:8000
@@ -164,7 +164,7 @@ AUTO_SL_PERCENTAGE = -30.0   # Stop loss at -30%
 ## 🎯 Quick Start Checklist
 
 - [ ] Run system tests: `python test_real_trading.py`
-- [ ] Setup wallet: `python setup_real_trading.py`
+- [ ] Setup wallet: `python project/scripts/setup_real_trading.py`
 - [ ] Start with small amounts (0.1-0.5 SOL)
 - [ ] Monitor first trades closely
 - [ ] Adjust risk parameters as needed
@@ -176,10 +176,10 @@ AUTO_SL_PERCENTAGE = -30.0   # Stop loss at -30%
 ```bash
 # Setup and testing
 python test_real_trading.py     # Run system tests
-python setup_real_trading.py    # Configure wallet
+python project/scripts/setup_real_trading.py    # Configure wallet
 
 # Trading operations  
-python start_bot.py             # Start real trading bot
+python project/scripts/start_bot.py             # Start real trading bot
 curl -X POST localhost:8000/api/emergency-exit  # Emergency stop
 
 # Monitoring
@@ -200,9 +200,9 @@ Remember:
 
 ## 📞 Support & Resources
 
-- **Documentation**: See `REAL_TRADING_GUIDE.md`
-- **Setup Guide**: `SETUP_GUIDE.md`
-- **Architecture**: `PROJECT_OVERVIEW.md`
+- **Documentation**: See `project/docs/REAL_TRADING_GUIDE.md`
+- **Setup Guide**: `project/docs/SETUP_GUIDE.md`
+- **Architecture**: `project/docs/PROJECT_OVERVIEW.md`
 - **Issues**: Report on GitHub
 
 **Good luck and trade safely! 🚀💰**
@@ -247,11 +247,11 @@ This is a **complete full-stack cryptocurrency trading system** powered by an AI
 ## 📚 DOCUMENTATION
 
 ### 📖 Essential Reading
-- **[🎯 PROJECT OVERVIEW](PROJECT_OVERVIEW.md)** - Complete system overview and business case
-- **[📊 PERFORMANCE REPORT](PERFORMANCE_REPORT.md)** - 2024 trading results and metrics
-- **[🚀 SETUP GUIDE](SETUP_GUIDE.md)** - Complete installation and configuration
-- **[🏗️ Architecture Docs](architecture-docs/)** - System design and component explanations
-- **[🧠 AI Prompts](prompts/)** - Proprietary prompt engineering collection
+- **[🎯 PROJECT OVERVIEW](project/docs/PROJECT_OVERVIEW.md)** - Complete system overview and business case
+- **[📊 PERFORMANCE REPORT](project/docs/PERFORMANCE_REPORT.md)** - 2024 trading results and metrics
+- **[🚀 SETUP GUIDE](project/docs/SETUP_GUIDE.md)** - Complete installation and configuration
+- **[🏗️ Architecture Docs](project/docs/architecture/)** - System design and component explanations
+- **[🧠 AI Prompts](project/prompts/)** - Proprietary prompt engineering collection
 
 ### 🎯 Quick Links
 - **Backend Setup**: `cd backend && python main.py`
@@ -583,19 +583,25 @@ curl -X POST http://localhost:8000/api/update-position \
 
 ```
 quant-bot/
-├── backend/                 # AI Swarm Backend
+├── backend/                # AI Swarm Backend
 │   ├── core/               # Core orchestration
-│   ├── active-positions/   # Position management
-│   ├── ai-analysis/        # Neural networks
-│   ├── market-analysis/    # Market intelligence
-│   ├── meme-scanner/       # Token discovery
-│   ├── portfolio-status/   # Performance tracking
-│   ├── risk-management/    # Risk engine
-│   ├── signal-feed/        # Signal aggregation
-│   ├── whale-activity/     # Whale tracking
+│   ├── active_positions/   # Position management
+│   ├── ai_analysis/        # Neural networks
+│   ├── market_analysis/    # Market intelligence
+│   ├── meme_scanner/       # Token discovery
+│   ├── portfolio_status/   # Performance tracking
+│   ├── risk_management/    # Risk engine
+│   ├── signal_feed/        # Signal aggregation
+│   ├── whale_activity/     # Whale tracking
 │   └── utils/              # Helper functions
-└── frontend/               # Trading Dashboard
-    └── dashboard/          # UI components
+├── frontend/               # Trading Dashboard
+│   └── dashboard/          # UI components
+└── project/                # Project resources
+    ├── docs/               # Documentation
+    │   └── architecture/   # Architecture docs
+    ├── prompts/            # AI agent prompts
+    ├── scripts/            # Utility scripts
+    └── tests/              # Test files
 ```
 
 ### Adding New Agents

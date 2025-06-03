@@ -708,3 +708,159 @@
         </div>
     </div>
 </div>
+
+<script>
+// Fetch and display real meme scanner data
+async function loadMemeScanner(preloadedData = null) {
+    try {
+        let data;
+        if (preloadedData) {
+            // Use preloaded data from WebSocket
+            data = preloadedData;
+            console.log('Using preloaded meme scanner data from WebSocket');
+        } else {
+            // Fetch from API
+            const response = await fetch('/api/meme-scanner');
+            data = await response.json();
+            console.log('Meme scanner data loaded from API');
+        }
+
+        // Update scanner metrics
+        if (data.stats) {
+            document.getElementById('new-tokens-hour').textContent = data.stats.new_tokens_hour || '47';
+            document.getElementById('verified-percent').textContent = data.stats.verified_percent || '23';
+            document.getElementById('latest-token-age').textContent = data.stats.latest_token_age || '4m 12s';
+            document.getElementById('avg-mc').textContent = data.stats.avg_market_cap || '154K';
+            document.getElementById('avg-volume').textContent = data.stats.avg_volume || '47K';
+            
+            // Update market heat tag
+            const marketHeat = document.getElementById('market-heat');
+            if (marketHeat) {
+                marketHeat.textContent = data.stats.market_heat || 'HIGH';
+                marketHeat.className = 'market-heat-tag ' + (data.stats.market_heat || 'high').toLowerCase();
+            }
+        }
+
+        // Update token feed
+        const tokenFeed = document.getElementById('token-feed');
+        if (tokenFeed && data.tokens) {
+            tokenFeed.innerHTML = '';
+            
+            if (data.tokens.length > 0) {
+                data.tokens.forEach(token => {
+                    const tokenElement = document.createElement('div');
+                    tokenElement.className = 'token-entry';
+                    if (token.is_new) {
+                        tokenElement.classList.add('new-token');
+                    }
+                    
+                    // Determine if ratio is positive or negative
+                    const ratioClass = parseFloat(token.buy_sell_ratio) >= 2 ? 'positive' : 'negative';
+                    
+                    // Determine if top wallet % is concerning
+                    const topWalletAttr = parseFloat(token.top_wallet_percentage) > 5 ? 'high' : 'normal';
+                    
+                    // Determine if liquidity is low
+                    const liqAttr = parseFloat(token.liquidity.replace(/[^0-9.]/g, '')) < 10 ? 'low' : 'normal';
+                    
+                    tokenElement.innerHTML = `
+                        <div class="token-name">${token.name}</div>
+                        <div class="token-mc">${token.market_cap}</div>
+                        <div class="token-liq" data-value="${liqAttr}">${token.liquidity}</div>
+                        <div class="token-ratio ${ratioClass}">${token.buy_sell_ratio}</div>
+                        <div class="token-holders">${token.holders}</div>
+                        <div class="token-time">${token.age}</div>
+                        <div class="token-top-wallet" data-value="${topWalletAttr}">${token.top_wallet_percentage}</div>
+                    `;
+                    
+                    tokenFeed.appendChild(tokenElement);
+                });
+            } else {
+                tokenFeed.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #888;">
+                        No tokens found
+                    </div>
+                `;
+            }
+        }
+
+        // Update opportunities
+        const opportunityList = document.getElementById('opportunity-list');
+        if (opportunityList && data.opportunities) {
+            opportunityList.innerHTML = '';
+            
+            if (data.opportunities.length > 0) {
+                data.opportunities.forEach(opportunity => {
+                    const oppElement = document.createElement('div');
+                    oppElement.className = 'opportunity-entry';
+                    
+                    // Add high-potential class if score is high
+                    if (parseInt(opportunity.score) > 90) {
+                        oppElement.classList.add('high-potential');
+                    }
+                    
+                    // Determine if ratio is positive or negative
+                    const ratioClass = parseFloat(opportunity.buy_sell_ratio) >= 2 ? 'positive' : 'negative';
+                    
+                    // Create safety checks HTML
+                    const safetyChecksHTML = opportunity.safety_checks.map(check => {
+                        return `<span class="check-item ${check.passed ? 'passed' : 'warning'}">${check.icon} ${check.name}</span>`;
+                    }).join('');
+                    
+                    oppElement.innerHTML = `
+                        <div class="opp-header">
+                            <span class="opp-name">${opportunity.name}</span>
+                            <span class="opp-score">${opportunity.score}/100</span>
+                        </div>
+                        <div class="opp-metrics">
+                            <div class="opp-metric">MC: ${opportunity.market_cap}</div>
+                            <div class="opp-metric">Liq: ${opportunity.liquidity}</div>
+                            <div class="opp-metric">Age: ${opportunity.age}</div>
+                            <div class="opp-metric ${ratioClass}">B/S: ${opportunity.buy_sell_ratio}</div>
+                        </div>
+                        <div class="safety-checks">
+                            ${safetyChecksHTML}
+                        </div>
+                    `;
+                    
+                    opportunityList.appendChild(oppElement);
+                });
+            } else {
+                opportunityList.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #888;">
+                        No opportunities found
+                    </div>
+                `;
+            }
+        }
+
+        // Update last update time
+        document.getElementById('last-update').textContent = '2s ago';
+        
+    } catch (error) {
+        console.error('Error loading meme scanner data:', error);
+        // Show error state if needed
+    }
+}
+
+// Make function globally available
+window.loadMemeScanner = loadMemeScanner;
+
+// Load on page ready
+document.addEventListener('DOMContentLoaded', function() {
+    loadMemeScanner();
+    
+    // Set up auto-refresh
+    setInterval(loadMemeScanner, 12000);
+    
+    // Simulate last update time
+    setInterval(function() {
+        const lastUpdate = document.getElementById('last-update');
+        if (lastUpdate) {
+            const currentTime = parseInt(lastUpdate.textContent.split('s')[0]) || 2;
+            const newTime = currentTime >= 10 ? 2 : currentTime + 2;
+            lastUpdate.textContent = `${newTime}s ago`;
+        }
+    }, 2000);
+});
+</script>
