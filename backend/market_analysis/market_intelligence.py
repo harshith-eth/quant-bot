@@ -9,12 +9,28 @@ import asyncio
 import logging
 import httpx
 import random
+import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 import json
 from core.config import settings
+from dataclasses import dataclass
 
 logger = logging.getLogger("MARKET_INTELLIGENCE")
+
+@dataclass
+class TokenPrice:
+    """Token price data structure"""
+    symbol: str
+    address: str
+    price: float
+    price_24h_change: float
+    volume_24h: float
+    liquidity_usd: float
+    market_cap: Optional[float] = None
+    fully_diluted_val: Optional[float] = None
+    updated_at: datetime = None
 
 class MarketIntelligence:
     """Advanced market analysis and intelligence system"""
@@ -27,16 +43,47 @@ class MarketIntelligence:
         self.last_update = datetime.now()
         self.http_client = httpx.AsyncClient()
         
+        # Token price tracking
+        self.token_prices: Dict[str, TokenPrice] = {}
+        self.price_history: Dict[str, List[float]] = {}
+        self.token_metadata: Dict[str, dict] = {}
+        
+        # DEX data sources
+        self.jupiter_price_cache = {}
+        self.raydium_liquidity_cache = {}
+        
+        # Technical analysis data
+        self.price_trends = {}
+        self.support_resistance_levels = {}
+        
         # Initialize market data
         self._initialize_market_data()
+        
+        # Default tokens to track
+        self.default_tokens = [
+            {"symbol": "SOL", "address": "So11111111111111111111111111111111111111112"},
+            {"symbol": "BONK", "address": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"},
+            {"symbol": "JUP", "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"},
+            {"symbol": "WIF", "address": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm"}
+        ]
         
         logger.info("📊 MARKET INTELLIGENCE INITIALIZED")
     
     async def initialize(self):
         """Initialize market intelligence"""
         logger.info("🚀 INITIALIZING MARKET INTELLIGENCE...")
+        
         # Start market monitoring
         asyncio.create_task(self._monitor_market())
+        
+        # Initialize token tracking for default tokens
+        for token in self.default_tokens:
+            await self._initialize_token_tracking(token["symbol"], token["address"])
+            
+        # Start price update tasks
+        asyncio.create_task(self._jupiter_price_feed())
+        asyncio.create_task(self._raydium_liquidity_feed())
+        
         logger.info("✅ MARKET INTELLIGENCE ONLINE")
     
     def _initialize_market_data(self):
@@ -62,17 +109,109 @@ class MarketIntelligence:
             "volume": {"avg_24h": 15600000, "current": 23400000, "spike": True}
         }
     
+    def _calculate_trends(self):
+        """Calculate price trends for all tracked tokens"""
+        for address, history in self.price_history.items():
+            if len(history) > 20:  # Need enough data points
+                # Use numpy for trend calculation
+                prices = np.array(history[-20:])  # Last 20 prices
+                x = np.arange(len(prices))
+                # Linear regression to find trend
+                slope, intercept = np.polyfit(x, prices, 1)
+                # Store trend data
+                self.price_trends[address] = {
+                    "slope": slope,
+                    "intercept": intercept,
+                    "direction": "UP" if slope > 0 else "DOWN",
+                    "strength": abs(slope) / np.mean(prices) * 100  # Normalized strength
+                }
+    
+    def _calculate_support_resistance(self):
+        """Calculate support and resistance levels for tracked tokens"""
+        for address, history in self.price_history.items():
+            if len(history) > 50:  # Need enough data points
+                # Convert to numpy array for calculations
+                prices = np.array(history[-100:]) if len(history) >= 100 else np.array(history)
+                
+                # Find local minima and maxima
+                resistance_points = []
+                support_points = []
+                
+                # Simple detection of local extrema (window size 5)
+                window = 5
+                for i in range(window, len(prices) - window):
+                    # Check for local maximum (resistance)
+                    if prices[i] == max(prices[i-window:i+window]):
+                        resistance_points.append(prices[i])
+                    # Check for local minimum (support)
+                    if prices[i] == min(prices[i-window:i+window]):
+                        support_points.append(prices[i])
+                
+                # Get current price
+                current_price = prices[-1] if len(prices) > 0 else 0
+                
+                # Find closest levels to current price
+                resistance_levels = sorted([r for r in resistance_points if r > current_price])[:3]
+                support_levels = sorted([s for s in support_points if s < current_price], reverse=True)[:3]
+                
+                # Store levels
+                self.support_resistance_levels[address] = {
+                    "support": support_levels,
+                    "resistance": resistance_levels
+                }
+
+    async def _update_token_price(self, address: str):
+        """Update price data for a single token"""
+        try:
+            # Call Jupiter price API for single token
+            response = await self.http_client.get(
+                f"{settings.JUPITER_API_URL}/price",
+                params={"ids": address}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                price_data = data.get("data", {}).get(address, {})
+                
+                if price_data and address in self.token_prices:
+                    token = self.token_prices[address]
+                    token.price = float(price_data.get("price", 0))
+                    token.updated_at = datetime.now()
+                    
+                    # Store price in history
+                    if address in self.price_history:
+                        self.price_history[address].append(token.price)
+                        if len(self.price_history[address]) > 1000:
+                            self.price_history[address].pop(0)
+        except Exception as e:
+            logger.error(f"Error updating token price: {e}")
+    
     def get_market_data(self) -> dict:
         """Get market data in the exact format required"""
-        # Calculate support and resistance levels based on current data
-        support_levels = [0.000041, 0.000039, 0.000036]
-        resistance_levels = [0.000047, 0.000049, 0.000052]
+        # Select SOL as the default token (if available)
+        sol_address = "So11111111111111111111111111111111111111112"
+        
+        # Get SOL price and data
+        sol_token = self.token_prices.get(sol_address)
+        if sol_token:
+            price = sol_token.price
+            volume = sol_token.volume_24h
+        else:
+            # Fallback to first available token or default values
+            first_token = next(iter(self.token_prices.values())) if self.token_prices else None
+            price = first_token.price if first_token else self.technical_indicators["ema"]["20"]
+            volume = first_token.volume_24h if first_token else self.technical_indicators["volume"]["current"]
+        
+        # Get support and resistance levels
+        support_resistance = self.support_resistance_levels.get(sol_address, {})
+        support_levels = support_resistance.get("support", [0.000041, 0.000039, 0.000036])
+        resistance_levels = support_resistance.get("resistance", [0.000047, 0.000049, 0.000052])
         
         # Return the properly formatted market data structure
         return {
             "market": {
-                "price": self.technical_indicators["ema"]["20"],
-                "volume": self.technical_indicators["volume"]["current"],
+                "price": price,
+                "volume": volume,
                 "volatility": self.market_data["volatility"],
                 "trend": self.market_data["global_sentiment"],
                 "support_levels": support_levels,
@@ -80,15 +219,173 @@ class MarketIntelligence:
             }
         }
     
+    async def _initialize_token_tracking(self, symbol: str, address: str):
+        """Initialize tracking for a specific token"""
+        if address not in self.token_prices:
+            self.token_prices[address] = TokenPrice(
+                symbol=symbol,
+                address=address,
+                price=0.0,
+                price_24h_change=0.0,
+                volume_24h=0.0,
+                liquidity_usd=0.0,
+                updated_at=datetime.now()
+            )
+            self.price_history[address] = []
+            logger.info(f"Started tracking token: {symbol} ({address[:8]}...)")
+            
+            # Fetch initial data
+            await self._update_token_price(address)
+
     async def _update_market_analysis(self):
         """Update market analysis with fresh data"""
-        # Simulate market data updates
+        # Update with real market data
         await self._update_market_cap()
         await self._update_technical_indicators()
         await self._update_sentiment()
         
+        # Update technical analysis
+        self._calculate_trends()
+        self._calculate_support_resistance()
+        
         self.last_update = datetime.now()
     
+    async def _jupiter_price_feed(self):
+        """Continuously fetch price data from Jupiter API"""
+        while True:
+            try:
+                # Get addresses of tokens we're tracking
+                addresses = list(self.token_prices.keys())
+                if not addresses:
+                    await asyncio.sleep(5)
+                    continue
+                    
+                # Batch request to Jupiter API (max 100 tokens per request)
+                for i in range(0, len(addresses), 100):
+                    batch = addresses[i:i+100]
+                    await self._fetch_jupiter_prices(batch)
+                
+                await asyncio.sleep(settings.PRICE_UPDATE_INTERVAL)
+            except Exception as e:
+                logger.error(f"Error in Jupiter price feed: {e}")
+                await asyncio.sleep(15)  # Back off on error
+    
+    async def _fetch_jupiter_prices(self, addresses: List[str]):
+        """Fetch token prices from Jupiter API"""
+        try:
+            # Build query params with addresses (comma separated)
+            query_params = {"ids": ",".join(addresses)}
+            
+            # Call Jupiter price API
+            response = await self.http_client.get(
+                f"{settings.JUPITER_API_URL}/price",
+                params=query_params
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                data = data.get("data", {})
+                
+                # Update token prices
+                for address, price_data in data.items():
+                    if address in self.token_prices:
+                        token = self.token_prices[address]
+                        
+                        # Calculate price change if we have previous price
+                        if token.price > 0:
+                            price_change = ((float(price_data.get("price", 0)) / token.price) - 1) * 100
+                        else:
+                            price_change = 0
+                            
+                        # Update token data
+                        token.price = float(price_data.get("price", 0))
+                        token.price_24h_change = price_change
+                        token.updated_at = datetime.now()
+                        
+                        # Store price in history (keep last 1000 points)
+                        if address in self.price_history:
+                            self.price_history[address].append(token.price)
+                            if len(self.price_history[address]) > 1000:
+                                self.price_history[address].pop(0)
+                        
+                # Update cache timestamp
+                self.jupiter_price_cache["last_update"] = datetime.now()
+        except Exception as e:
+            logger.error(f"Error fetching Jupiter prices: {e}")
+    
+    async def _raydium_liquidity_feed(self):
+        """Continuously fetch liquidity data from Raydium or Birdeye API"""
+        while True:
+            try:
+                # Get addresses of tokens we're tracking
+                addresses = list(self.token_prices.keys())
+                if not addresses:
+                    await asyncio.sleep(5)
+                    continue
+                
+                # Update liquidity data for tracked tokens (use Birdeye API)
+                for address in addresses:
+                    await self._fetch_token_liquidity(address)
+                    # Add slight delay between requests to avoid rate limits
+                    await asyncio.sleep(0.5)
+                
+                # Set longer interval for liquidity updates
+                await asyncio.sleep(30)  # Update every 30 seconds
+            except Exception as e:
+                logger.error(f"Error in Raydium liquidity feed: {e}")
+                await asyncio.sleep(15)  # Back off on error
+    
+    async def _fetch_token_liquidity(self, token_address: str):
+        """Fetch token liquidity data from Birdeye API"""
+        try:
+            # Call Birdeye API for token liquidity
+            response = await self.http_client.get(
+                f"{settings.BIRDEYE_API_URL}/public/token",
+                params={"address": token_address},
+                headers={"X-API-KEY": "birdeye_api_key_placeholder"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if "data" in data and "token" in data["data"]:
+                    token_data = data["data"]["token"]
+                    
+                    if token_address in self.token_prices:
+                        token = self.token_prices[token_address]
+                        token.volume_24h = float(token_data.get("volume24h", 0))
+                        token.liquidity_usd = float(token_data.get("liquidity", 0))
+                        token.market_cap = float(token_data.get("mc", 0))
+                        token.fully_diluted_val = float(token_data.get("fdv", 0))
+        except Exception as e:
+            # If the API call fails, use fallback method with DEXScreener
+            try:
+                await self._fetch_dexscreener_liquidity(token_address)
+            except Exception as inner_e:
+                logger.error(f"Error fetching token liquidity from both sources: {e}, {inner_e}")
+    
+    async def _fetch_dexscreener_liquidity(self, token_address: str):
+        """Fallback method to fetch liquidity from DexScreener"""
+        try:
+            response = await self.http_client.get(
+                f"{settings.DEXSCREENER_API_URL}/dex/tokens/solana/{token_address}"
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                pairs = data.get("pairs", [])
+                
+                if pairs:
+                    # Find the pair with the highest liquidity
+                    best_pair = max(pairs, key=lambda p: p.get("liquidity", {}).get("usd", 0))
+                    
+                    if token_address in self.token_prices:
+                        token = self.token_prices[token_address]
+                        token.volume_24h = float(best_pair.get("volume", {}).get("h24", 0))
+                        token.liquidity_usd = float(best_pair.get("liquidity", {}).get("usd", 0))
+                        token.market_cap = float(best_pair.get("marketCap", 0))
+        except Exception as e:
+            logger.error(f"Error fetching DEXScreener liquidity: {e}")
+
     async def _update_market_cap(self):
         """Update market cap and dominance using real data"""
         try:
@@ -288,26 +585,115 @@ class MarketIntelligence:
                 logger.error(f"Market monitoring error: {e}")
                 await asyncio.sleep(30)
     
+    async def add_token_to_track(self, symbol: str, address: str) -> bool:
+        """Add a new token to track"""
+        try:
+            await self._initialize_token_tracking(symbol, address)
+            return True
+        except Exception as e:
+            logger.error(f"Error adding token to track: {e}")
+            return False
+    
+    def get_tracked_tokens(self) -> List[Dict]:
+        """Get list of all tokens being tracked"""
+        return [
+            {
+                "symbol": token.symbol,
+                "address": address,
+                "price": token.price,
+                "price_change": token.price_24h_change,
+                "volume": token.volume_24h,
+                "liquidity": token.liquidity_usd,
+                "market_cap": token.market_cap
+            } 
+            for address, token in self.token_prices.items()
+        ]
+    
     async def scan_market(self) -> dict:
         """Scan market for opportunities"""
-        return await self.get_analysis()
+        # Get top performing tokens (by price change)
+        tracked_tokens = self.get_tracked_tokens()
+        top_performers = sorted(
+            tracked_tokens, 
+            key=lambda t: t["price_change"], 
+            reverse=True
+        )[:5]  # Top 5 performers
+        
+        # Get high volume tokens
+        high_volume = sorted(
+            tracked_tokens,
+            key=lambda t: t["volume"],
+            reverse=True
+        )[:5]  # Top 5 by volume
+        
+        # Get potential opportunities based on trends
+        opportunities = []
+        for address, trend in self.price_trends.items():
+            if trend["direction"] == "UP" and trend["strength"] > 5.0:
+                token = self.token_prices.get(address)
+                if token:
+                    opportunities.append({
+                        "symbol": token.symbol,
+                        "address": address,
+                        "trend_strength": trend["strength"],
+                        "price": token.price
+                    })
+        
+        return {
+            "top_performers": top_performers[:3],
+            "high_volume": high_volume[:3],
+            "opportunities": opportunities[:3],
+            "market_sentiment": self.market_data["global_sentiment"]
+        }
     
     async def assess_market_conditions(self) -> dict:
         """Assess current market conditions"""
+        # Calculate overall market trend from tracked tokens
+        uptrend_count = sum(1 for trend in self.price_trends.values() if trend.get("direction") == "UP")
+        total_tokens = len(self.price_trends)
+        market_trend_ratio = uptrend_count / max(total_tokens, 1)
+        
+        # Calculate average volume and liquidity
+        avg_volume = sum(token.volume_24h for token in self.token_prices.values()) / max(len(self.token_prices), 1)
+        avg_liquidity = sum(token.liquidity_usd for token in self.token_prices.values()) / max(len(self.token_prices), 1)
+        
+        # Calculate weighted market sentiment
+        sentiment_score = market_trend_ratio * 0.6 + (self.market_data["fear_greed_index"] / 100) * 0.4
+        sentiment_categories = ["BEARISH", "SLIGHTLY BEARISH", "NEUTRAL", "SLIGHTLY BULLISH", "BULLISH"]
+        sentiment_index = min(int(sentiment_score * 5), 4)
+        calculated_sentiment = sentiment_categories[sentiment_index]
+        
         return {
-            "bullishness": self.market_data["fear_greed_index"] / 100,
+            "bullishness": sentiment_score,
             "volatility": self.market_data["volatility"] / 100,
-            "trend_strength": self.market_data["trend_strength"] / 10,
-            "sentiment": self.market_data["global_sentiment"]
+            "trend_strength": market_trend_ratio,
+            "sentiment": calculated_sentiment,
+            "avg_volume_24h": avg_volume,
+            "avg_liquidity": avg_liquidity,
+            "tokens_tracked": len(self.token_prices)
         }
     
     def get_metrics(self) -> dict:
         """Get market intelligence metrics"""
+        # Get SOL metrics if available
+        sol_address = "So11111111111111111111111111111111111111112"
+        sol_token = self.token_prices.get(sol_address)
+        sol_price = sol_token.price if sol_token else 0
+        
+        # Get token count by performance
+        tokens = self.get_tracked_tokens()
+        positive_performers = sum(1 for t in tokens if t["price_change"] > 0)
+        negative_performers = sum(1 for t in tokens if t["price_change"] < 0)
+        
         return {
             "market_cap": self.market_data["total_market_cap"],
             "sentiment": self.market_data["global_sentiment"],
             "fear_greed": self.market_data["fear_greed_index"],
             "trend_strength": self.market_data["trend_strength"],
+            "sol_price": sol_price,
+            "tokens_tracked": len(self.token_prices),
+            "positive_performers": positive_performers,
+            "negative_performers": negative_performers,
             "last_update": self.last_update.isoformat()
         }
     

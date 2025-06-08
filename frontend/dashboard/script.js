@@ -114,6 +114,8 @@ async function loadCardContents() {
         'market-analysis',
         'meme-scanner',
         'portfolio-status',
+        'performance-metrics',
+        'trading-controls',
         'risk-management',
         'signal-feed',
         'whale-activity'

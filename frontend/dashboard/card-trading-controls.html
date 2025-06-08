@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<div class="trading-controls-container">
+    <h2>MANUAL TRADING
+        <div class="trading-status">
+            <span id="trading-status" class="connection-status online">READY</span>
+        </div>
+    </h2>
+
+    <div class="trading-content">
+        <div class="analysis-container">
+            <!-- Trading Form -->
+            <div class="analysis-section">
+                <div class="section-title">
+                    🚀 NEW TRADE
+                </div>
+                <div class="section-content">
+                    <form id="trade-form" class="trade-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="token-symbol">Token</label>
+                                <input type="text" id="token-symbol" placeholder="e.g. SOL" required class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="trade-type">Type</label>
+                                <select id="trade-type" class="form-control">
+                                    <option value="market">Market</option>
+                                    <option value="limit">Limit</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="trade-side">Side</label>
+                                <select id="trade-side" class="form-control">
+                                    <option value="buy">Buy</option>
+                                    <option value="sell">Sell</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="trade-amount">Amount (SOL)</label>
+                                <input type="number" id="trade-amount" placeholder="0.1" step="0.01" min="0.01" required class="form-control">
+                            </div>
+                        </div>
+                        
+                        <div id="limit-price-row" class="form-row hidden">
+                            <div class="form-group">
+                                <label for="limit-price">Limit Price</label>
+                                <input type="number" id="limit-price" placeholder="Enter price" step="0.000001" class="form-control">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="set-sl" class="checkbox-input">
+                                    <label for="set-sl" class="checkbox-label">Set Stop Loss</label>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="set-tp" class="checkbox-input">
+                                    <label for="set-tp" class="checkbox-label">Set Take Profit</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="sl-price-row" class="form-row hidden">
+                            <div class="form-group">
+                                <label for="sl-price">Stop Loss</label>
+                                <input type="number" id="sl-price" placeholder="Stop price" step="0.000001" class="form-control">
+                            </div>
+                        </div>
+                        
+                        <div id="tp-price-row" class="form-row hidden">
+                            <div class="form-group">
+                                <label for="tp-price">Take Profit</label>
+                                <input type="number" id="tp-price" placeholder="Target price" step="0.000001" class="form-control">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row button-row">
+                            <button type="submit" id="execute-trade-btn" class="trade-button execute-btn">Execute Trade</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Trade Status -->
+            <div class="analysis-section">
+                <div class="section-title">
+                    📊 TRADE STATUS
+                </div>
+                <div class="section-content">
+                    <div id="trade-status" class="trade-status-content">
+                        <div class="status-message">No active trade execution</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Emergency Controls -->
+            <div class="analysis-section">
+                <div class="section-title">
+                    🚨 EMERGENCY CONTROLS
+                </div>
+                <div class="section-content">
+                    <div class="emergency-buttons">
+                        <button id="emergency-stop-btn" class="emergency-button">
+                            <div class="emergency-icon">🛑</div>
+                            <div class="emergency-text">CLOSE ALL POSITIONS</div>
+                        </button>
+                        
+                        <button id="cancel-orders-btn" class="emergency-button secondary">
+                            <div class="emergency-icon">⚠️</div>
+                            <div class="emergency-text">CANCEL ALL ORDERS</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.trading-controls-container {
+    height: 39.5vh;
+    display: flex;
+    flex-direction: column;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+    background: transparent;
+}
+
+.trading-controls-container h2 {
+    padding: 0.5vh;
+    margin: 0 !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 3 !important;
+    background: linear-gradient(90deg, #001100 0%, #000300 100%);
+    border-bottom: 1px solid #00ff00;
+    font-family: 'Courier New', monospace;
+    color: #00ff00;
+    font-size: 1.24vh;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: normal;
+}
+
+.trading-status {
+    display: flex;
+    align-items: center;
+}
+
+.trading-content {
+    position: absolute !important;
+    top: 3vh !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    overflow-y: auto !important;
+    padding: 0.5vh !important;
+    background: rgba(0, 5, 0, 0.2);
+    font-family: 'Courier New', monospace;
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+}
+
+.trading-content::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+}
+
+/* Trading Form Styles */
+.trade-form {
+    width: 100%;
+}
+
+.form-row {
+    display: flex;
+    gap: 1vh;
+    margin-bottom: 1vh;
+    width: 100%;
+}
+
+.form-group {
+    flex: 1;
+}
+
+.form-group label {
+    display: block;
+    font-size: 1.24vh;
+    margin-bottom: 0.3vh;
+    color: #8b949e;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.5vh;
+    background-color: #000500;
+    border: 1px solid rgba(0, 255, 0, 0.3);
+    color: #00ff00;
+    font-family: 'Courier New', monospace;
+    font-size: 1.24vh;
+    box-sizing: border-box;
+}
+
+.form-control:focus {
+    border-color: #00ff00;
+    outline: none;
+    box-shadow: 0 0 3px rgba(0, 255, 0, 0.5);
+}
+
+.button-row {
+    justify-content: flex-end;
+    margin-top: 1vh;
+}
+
+.trade-button {
+    padding: 0.75vh 1.5vh;
+    background-color: #001a00;
+    border: 1px solid #00aa00;
+    color: #00ff00;
+    font-family: 'Courier New', monospace;
+    font-size: 1.24vh;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.2s ease;
+}
+
+.trade-button:hover {
+    background-color: #002a00;
+    box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+}
+
+.execute-btn {
+    background-color: rgba(0, 50, 0, 0.5);
+}
+
+/* Emergency Controls */
+.emergency-buttons {
+    display: flex;
+    gap: 1vh;
+}
+
+.emergency-button {
+    flex: 1;
+    padding: 1vh;
+    background-color: rgba(80, 0, 0, 0.4);
+    border: 1px solid rgba(255, 0, 0, 0.5);
+    color: #ff0000;
+    font-family: 'Courier New', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.emergency-button.secondary {
+    background-color: rgba(80, 40, 0, 0.4);
+    border: 1px solid rgba(255, 160, 0, 0.5);
+    color: #ffaa00;
+}
+
+.emergency-button:hover {
+    background-color: rgba(120, 0, 0, 0.6);
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.3);
+}
+
+.emergency-button.secondary:hover {
+    background-color: rgba(120, 60, 0, 0.6);
+    box-shadow: 0 0 10px rgba(255, 160, 0, 0.3);
+}
+
+.emergency-icon {
+    font-size: 2vh;
+    margin-bottom: 0.5vh;
+}
+
+.emergency-text {
+    font-size: 1.24vh;
+}
+
+/* Checkbox styles */
+.checkbox-group {
+    display: flex;
+    align-items: center;
+}
+
+.checkbox-input {
+    margin-right: 0.5vh;
+}
+
+.checkbox-label {
+    font-size: 1.24vh;
+    color: #00ff00;
+}
+
+/* Trade status styles */
+.trade-status-content {
+    padding: 1vh;
+    background-color: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 255, 0, 0.1);
+    min-height: 2vh;
+    font-size: 1.24vh;
+}
+
+.status-message {
+    color: #8b949e;
+    text-align: center;
+}
+
+.hidden {
+    display: none;
+}
+</style>
+
+<script>
+// Initialize trading controls
+function initializeTradingControls() {
+    // Get form elements
+    const tradeForm = document.getElementById('trade-form');
+    const tradeTypeSelect = document.getElementById('trade-type');
+    const setSLCheckbox = document.getElementById('set-sl');
+    const setTPCheckbox = document.getElementById('set-tp');
+    const limitPriceRow = document.getElementById('limit-price-row');
+    const slPriceRow = document.getElementById('sl-price-row');
+    const tpPriceRow = document.getElementById('tp-price-row');
+    const emergencyStopBtn = document.getElementById('emergency-stop-btn');
+    const cancelOrdersBtn = document.getElementById('cancel-orders-btn');
+    
+    // Toggle limit price field based on trade type
+    tradeTypeSelect.addEventListener('change', () => {
+        if (tradeTypeSelect.value === 'limit') {
+            limitPriceRow.classList.remove('hidden');
+        } else {
+            limitPriceRow.classList.add('hidden');
+        }
+    });
+    
+    // Toggle stop loss price field
+    setSLCheckbox.addEventListener('change', () => {
+        if (setSLCheckbox.checked) {
+            slPriceRow.classList.remove('hidden');
+        } else {
+            slPriceRow.classList.add('hidden');
+        }
+    });
+    
+    // Toggle take profit price field
+    setTPCheckbox.addEventListener('change', () => {
+        if (setTPCheckbox.checked) {
+            tpPriceRow.classList.remove('hidden');
+        } else {
+            tpPriceRow.classList.add('hidden');
+        }
+    });
+    
+    // Handle trade form submission
+    tradeForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        // Get form values
+        const symbol = document.getElementById('token-symbol').value;
+        const tradeType = tradeTypeSelect.value;
+        const side = document.getElementById('trade-side').value;
+        const amount = parseFloat(document.getElementById('trade-amount').value);
+        
+        // Create trade data object
+        const tradeData = {
+            symbol,
+            side,
+            amount,
+            type: tradeType
+        };
+        
+        // Add limit price if applicable
+        if (tradeType === 'limit') {
+            const limitPrice = parseFloat(document.getElementById('limit-price').value);
+            if (!limitPrice || isNaN(limitPrice)) {
+                showTradeStatus('Error: Please enter a valid limit price', 'error');
+                return;
+            }
+            tradeData.price = limitPrice;
+        }
+        
+        // Add stop loss if checked
+        if (setSLCheckbox.checked) {
+            const slPrice = parseFloat(document.getElementById('sl-price').value);
+            if (!slPrice || isNaN(slPrice)) {
+                showTradeStatus('Error: Please enter a valid stop loss price', 'error');
+                return;
+            }
+            tradeData.stop_loss = slPrice;
+        }
+        
+        // Add take profit if checked
+        if (setTPCheckbox.checked) {
+            const tpPrice = parseFloat(document.getElementById('tp-price').value);
+            if (!tpPrice || isNaN(tpPrice)) {
+                showTradeStatus('Error: Please enter a valid take profit price', 'error');
+                return;
+            }
+            tradeData.take_profit = tpPrice;
+        }
+        
+        // Update status
+        showTradeStatus('Executing trade...', 'pending');
+        
+        // Execute the trade
+        try {
+            const result = await window.dashboard.executeTrade(tradeData);
+            if (result.success) {
+                showTradeStatus(`Trade executed! ${side.toUpperCase()} ${amount} ${symbol}`, 'success');
+                // Clear form after successful trade
+                tradeForm.reset();
+            } else {
+                showTradeStatus(`Trade failed: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            showTradeStatus(`Error: ${error.message}`, 'error');
+        }
+    });
+    
+    // Handle emergency stop button
+    emergencyStopBtn.addEventListener('click', async () => {
+        // Add confirmation dialog
+        if (!confirm('EMERGENCY STOP: Are you sure you want to close ALL positions? This cannot be undone.')) {
+            return;
+        }
+        
+        try {
+            const result = await window.dashboard.emergencyStop();
+            if (result.success) {
+                showTradeStatus('Emergency stop executed - all positions closed', 'success');
+            } else {
+                showTradeStatus(`Emergency stop failed: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            showTradeStatus(`Error: ${error.message}`, 'error');
+        }
+    });
+    
+    // Handle cancel orders button
+    cancelOrdersBtn.addEventListener('click', async () => {
+        // Add confirmation dialog
+        if (!confirm('Are you sure you want to cancel all pending orders?')) {
+            return;
+        }
+        
+        try {
+            // Make API call to cancel all orders
+            const response = await fetch('/api/cancel-all-orders', {
+                method: 'POST'
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                showTradeStatus('All pending orders cancelled', 'success');
+            } else {
+                showTradeStatus(`Failed to cancel orders: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            showTradeStatus(`Error: ${error.message}`, 'error');
+        }
+    });
+    
+    // Initialize with default values
+    updateTradingStatus('READY');
+}
+
+// Update trading status indicator
+function updateTradingStatus(status, isConnected = true) {
+    const tradingStatusElem = document.getElementById('trading-status');
+    
+    if (!tradingStatusElem) return;
+    
+    tradingStatusElem.textContent = status;
+    
+    // Update class based on status
+    tradingStatusElem.className = 'connection-status';
+    
+    if (!isConnected) {
+        tradingStatusElem.classList.add('offline');
+        return;
+    }
+    
+    switch (status.toLowerCase()) {
+        case 'ready':
+            tradingStatusElem.classList.add('online');
+            break;
+        case 'trading':
+            tradingStatusElem.classList.add('online');
+            break;
+        case 'pending':
+            tradingStatusElem.classList.add('reconnecting');
+            break;
+        case 'maintenance':
+        case 'disabled':
+            tradingStatusElem.classList.add('failed');
+            break;
+        default:
+            tradingStatusElem.classList.add('online');
+    }
+}
+
+// Show trade status message
+function showTradeStatus(message, type = 'info') {
+    const statusElem = document.getElementById('trade-status');
+    
+    if (!statusElem) return;
+    
+    // Create status message
+    const statusContent = document.createElement('div');
+    statusContent.className = `status-message status-${type}`;
+    statusContent.textContent = message;
+    
+    // Clear previous content
+    statusElem.innerHTML = '';
+    
+    // Add new status
+    statusElem.appendChild(statusContent);
+    
+    // Add appropriate class based on the type of message
+    statusElem.className = `trade-status-content status-${type}`;
+}
+
+// Load trading controls when DOM is ready
+document.addEventListener('DOMContentLoaded', initializeTradingControls);
+
+// Add to global scope
+window.updateTradingStatus = updateTradingStatus;
+window.showTradeStatus = showTradeStatus;
+</script>
