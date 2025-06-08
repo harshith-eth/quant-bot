@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<div class="trading-controls-container">
+    <h2>TRADING CONTROLS
+        <span style="float: right; font-size: 0.9em; font-family: 'Courier New', monospace; color: #00ff00; font-weight: normal;">
+            <span id="wallet-balance">0.00 SOL</span>
+        </span>
+    </h2>
+
+    <div class="trading-content">
+        <div class="controls-box">
+            <!-- Trading Status Panel -->
+            <div class="status-panel matrix-box">
+                <div class="status-row">
+                    <div class="status-indicator">
+                        <div class="indicator-label">AUTO TRADING</div>
+                        <div class="indicator-light" id="auto-trading-status">
+                            <span class="dot off"></span>
+                            <span class="status-text">OFF</span>
+                        </div>
+                    </div>
+                    <div class="status-indicator">
+                        <div class="indicator-label">WALLET</div>
+                        <div class="indicator-light" id="wallet-status">
+                            <span class="dot off"></span>
+                            <span class="status-text">NOT CONFIGURED</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="status-row">
+                    <div class="status-indicator">
+                        <div class="indicator-label">RISK LEVEL</div>
+                        <div class="indicator-light" id="risk-level">
+                            <span class="dot medium"></span>
+                            <span class="status-text">MEDIUM</span>
+                        </div>
+                    </div>
+                    <div class="status-indicator">
+                        <div class="indicator-label">EMERGENCY STOP</div>
+                        <div class="indicator-light" id="emergency-status">
+                            <span class="dot off"></span>
+                            <span class="status-text">INACTIVE</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="matrix-grid"></div>
+            </div>
+
+            <!-- Trading Form -->
+            <div class="trade-form">
+                <div class="form-header">MANUAL TRADE EXECUTION</div>
+                <div class="form-fields">
+                    <div class="form-group">
+                        <label>Token</label>
+                        <div class="input-group">
+                            <input type="text" id="token-mint" placeholder="Token Mint Address">
+                            <div class="search-icon">🔍</div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label>Symbol</label>
+                            <input type="text" id="token-symbol" placeholder="e.g. BONK">
+                        </div>
+                        <div class="form-group half">
+                            <label>Amount (SOL)</label>
+                            <input type="number" id="trade-amount" placeholder="0.1" min="0.01" step="0.01">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label>Stop Loss %</label>
+                            <input type="number" id="stop-loss" placeholder="30" value="30">
+                        </div>
+                        <div class="form-group half">
+                            <label>Take Profit %</label>
+                            <input type="number" id="take-profit" placeholder="100" value="100">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label>Max Slippage %</label>
+                            <input type="number" id="slippage" placeholder="2.5" value="2.5">
+                        </div>
+                        <div class="form-group half">
+                            <div class="checkbox-container">
+                                <input type="checkbox" id="auto-tp-sl">
+                                <label for="auto-tp-sl">Auto TP/SL</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button id="buy-btn" class="action-button buy">BUY TOKEN</button>
+                </div>
+            </div>
+            
+            <!-- Position Management -->
+            <div class="position-management">
+                <div class="form-header">POSITION MANAGEMENT</div>
+                
+                <div class="position-selector">
+                    <select id="position-selector">
+                        <option value="">Select Position</option>
+                    </select>
+                </div>
+                
+                <div class="position-details" id="position-details">
+                    <div class="no-position">No position selected</div>
+                </div>
+                
+                <div class="form-actions">
+                    <div class="action-row">
+                        <button id="sell-25-btn" class="action-button sell sell-partial">SELL 25%</button>
+                        <button id="sell-50-btn" class="action-button sell sell-partial">SELL 50%</button>
+                        <button id="sell-75-btn" class="action-button sell sell-partial">SELL 75%</button>
+                        <button id="sell-full-btn" class="action-button sell">SELL 100%</button>
+                    </div>
+                    
+                    <div class="action-row">
+                        <button id="update-sl-btn" class="action-button neutral">UPDATE SL</button>
+                        <button id="update-tp-btn" class="action-button neutral">UPDATE TP</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Emergency Controls -->
+            <div class="emergency-controls">
+                <div class="form-header danger">EMERGENCY CONTROLS</div>
+                <div class="emergency-actions">
+                    <button id="emergency-exit-btn" class="action-button emergency">EMERGENCY EXIT ALL</button>
+                    <button id="reset-emergency-btn" class="action-button reset">RESET EMERGENCY STOP</button>
+                </div>
+            </div>
+            
+            <!-- Trading Feedback -->
+            <div class="trading-feedback" id="trading-feedback">
+                <div class="feedback-message">System ready for trading</div>
+            </div>
+            
+            <div class="controls-footer">
+                <button id="toggle-auto-trading" class="toggle-button">ENABLE AUTO TRADING</button>
+                <button id="configure-wallet" class="toggle-button">CONFIGURE WALLET</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.trading-controls-container {
+    height: 39.5vh;
+    display: flex;
+    flex-direction: column;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+    background: transparent;
+}
+
+.trading-controls-container h2 {
+    padding: 0.5vh;
+    margin: 0 !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 3 !important;
+    background: linear-gradient(90deg, #001100 0%, #000300 100%);
+    border-bottom: 1px solid #00ff00;
+    font-family: 'Courier New', monospace;
+    color: #00ff00;
+    font-size: 1.24vh;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: normal;
+}
+
+.trading-content {
+    position: absolute !important;
+    top: 3vh !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    overflow-y: auto !important;
+    padding: 0.5vh !important;
+    background: rgba(0, 5, 0, 0.2);
+    font-family: 'Courier New', monospace;
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+}
+
+.trading-content::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+}
+
+.controls-box {
+    display: flex;
+    flex-direction: column;
+    gap: 1vh;
+    padding: 0.5vh;
+}
+
+/* Status Panel */
+.status-panel {
+    padding: 1vh;
+    margin-bottom: 0.5vh;
+}
+
+.status-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5vh;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 1vh;
+}
+
+.indicator-label {
+    font-size: 1vh;
+    color: #8b949e;
+    width: 6vw;
+}
+
+.indicator-light {
+    display: flex;
+    align-items: center;
+    gap: 0.5vh;
+}
+
+.dot {
+    width: 0.8vh;
+    height: 0.8vh;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.dot.on {
+    background-color: #00ff00;
+    box-shadow: 0 0 0.5vh #00ff00;
+}
+
+.dot.off {
+    background-color: #444;
+}
+
+.dot.warning, .dot.medium {
+    background-color: #ffcc00;
+    box-shadow: 0 0 0.5vh #ffcc00;
+}
+
+.dot.danger, .dot.high {
+    background-color: #ff0000;
+    box-shadow: 0 0 0.5vh #ff0000;
+}
+
+.status-text {
+    font-size: 1vh;
+    color: #8b949e;
+}
+
+/* Trading Form */
+.trade-form, .position-management, .emergency-controls {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 255, 0, 0.1);
+    padding: 1vh;
+    margin-bottom: 1vh;
+}
+
+.form-header {
+    color: #00ff00;
+    font-size: 1.24vh;
+    margin-bottom: 1vh;
+    border-bottom: 1px solid rgba(0, 255, 0, 0.2);
+    padding-bottom: 0.5vh;
+}
+
+.form-header.danger {
+    color: #ff0000;
+    border-bottom-color: rgba(255, 0, 0, 0.2);
+}
+
+.form-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 1vh;
+}
+
+.form-row {
+    display: flex;
+    gap: 1vh;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3vh;
+}
+
+.form-group.half {
+    flex: 1;
+}
+
+.form-group label {
+    font-size: 1vh;
+    color: #8b949e;
+}
+
+.form-group input {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(0, 255, 0, 0.2);
+    padding: 0.5vh;
+    color: #00ff00;
+    font-family: 'Courier New', monospace;
+    font-size: 1.24vh;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: rgba(0, 255, 0, 0.5);
+}
+
+.input-group {
+    position: relative;
+    display: flex;
+}
+
+.input-group input {
+    width: 100%;
+    padding-right: 2vh;
+}
+
+.search-icon {
+    position: absolute;
+    right: 0.5vh;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #8b949e;
+    cursor: pointer;
+}
+
+/* Position Selector */
+.position-selector {
+    margin-bottom: 1vh;
+}
+
+.position-selector select {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(0, 255, 0, 0.2);
+    padding: 0.5vh;
+    color: #00ff00;
+    font-family: 'Courier New', monospace;
+    font-size: 1.24vh;
+}
+
+.position-details {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 0.5vh;
+    margin-bottom: 1vh;
+    min-height: 5vh;
+}
+
+.position-details .no-position {
+    color: #8b949e;
+    text-align: center;
+    padding: 1vh;
+    font-size: 1vh;
+}
+
+/* Action Buttons */
+.form-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5vh;
+    margin-top: 1vh;
+}
+
+.action-row {
+    display: flex;
+    gap: 0.5vh;
+}
+
+.action-button {
+    flex: 1;
+    padding: 0.7vh;
+    font-family: 'Courier New', monospace;
+    font-size: 1vh;
+    border: none;
+    cursor: pointer;
+    background: rgba(0, 0, 0, 0.7);
+    color: #ffffff;
+    text-transform: uppercase;
+}
+
+.action-button.buy {
+    background-color: rgba(0, 128, 0, 0.7);
+    border: 1px solid #00ff00;
+    color: #ffffff;
+}
+
+.action-button.sell {
+    background-color: rgba(128, 0, 0, 0.7);
+    border: 1px solid #ff0000;
+    color: #ffffff;
+}
+
+.action-button.sell-partial {
+    background-color: rgba(128, 40, 0, 0.7);
+    border: 1px solid rgba(255, 100, 0, 0.7);
+}
+
+.action-button.neutral {
+    background-color: rgba(0, 0, 70, 0.7);
+    border: 1px solid #0066ff;
+}
+
+.action-button.emergency {
+    background-color: rgba(128, 0, 0, 0.7);
+    border: 1px solid #ff0000;
+    color: #ffffff;
+}
+
+.action-button.reset {
+    background-color: rgba(70, 70, 0, 0.7);
+    border: 1px solid #ffcc00;
+    color: #ffffff;
+}
+
+.action-button:hover {
+    filter: brightness(1.3);
+}
+
+.action-button:active {
+    transform: translateY(1px);
+}
+
+/* Checkbox styling */
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    margin-top: 2vh;
+}
+
+.checkbox-container input[type="checkbox"] {
+    margin-right: 0.5vh;
+}
+
+/* Trading Feedback */
+.trading-feedback {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 255, 0, 0.1);
+    padding: 1vh;
+    margin-top: 0.5vh;
+    margin-bottom: 0.5vh;
+    font-size: 1vh;
+    color: #8b949e;
+    min-height: 2.4vh;
+}
+
+.feedback-message {
+    text-align: center;
+}
+
+.feedback-message.success {
+    color: #00ff00;
+}
+
+.feedback-message.error {
+    color: #ff0000;
+}
+
+.feedback-message.warning {
+    color: #ffcc00;
+}
+
+/* Controls Footer */
+.controls-footer {
+    display: flex;
+    gap: 1vh;
+    margin-top: 0.5vh;
+}
+
+.toggle-button {
+    flex: 1;
+    padding: 0.8vh;
+    font-family: 'Courier New', monospace;
+    font-size: 1vh;
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid rgba(0, 255, 0, 0.3);
+    color: #00ff00;
+    cursor: pointer;
+    text-transform: uppercase;
+}
+
+.toggle-button.active {
+    background-color: rgba(0, 80, 0, 0.7);
+    border: 1px solid #00ff00;
+}
+
+.toggle-button:hover {
+    border-color: rgba(0, 255, 0, 0.8);
+}
+</style>
+
+<script>
+// Initialize trading controls
+let positions = [];
+let walletConfigured = false;
+let autoTradingEnabled = false;
+let emergencyActive = false;
+
+// DOM Elements
+document.addEventListener('DOMContentLoaded', () => {
+    setupEventListeners();
+    initializeTradeControls();
+    fetchTradingStatus();
+    
+    // Start heartbeat for trading status
+    setInterval(fetchTradingStatus, 10000);
+});
+
+// Subscribe to WebSocket updates if available
+function subscribeToTradingUpdates() {
+    if (window.dashboardSocket && window.dashboardSocket.readyState === WebSocket.OPEN) {
+        window.dashboardSocket.send(JSON.stringify({
+            action: 'subscribe',
+            channels: ['trading_status', 'active_positions', 'emergency_alerts']
+        }));
+        console.log('Subscribed to trading channels');
+        
+        // Register WebSocket message handler if not already registered
+        if (!window.wsMessageHandlersRegistered) {
+            registerWebSocketHandlers();
+        }
+    } else {
+        console.log('WebSocket not available for trading subscription');
+    }
+}
+
+function registerWebSocketHandlers() {
+    // This should only be registered once to avoid duplicates
+    if (window.dashboardSocket && !window.wsMessageHandlersRegistered) {
+        window.dashboardSocket.addEventListener('message', (event) => {
+            try {
+                const message = JSON.parse(event.data);
+                
+                // Handle different message types
+                switch (message.type) {
+                    case 'trading_status':
+                        updateTradingStatus(message.data);
+                        break;
+                    case 'active_positions':
+                        updatePositionsList(message.data.positions);
+                        break;
+                    case 'trade_executed':
+                        handleTradeExecution(message.data);
+                        break;
+                    case 'emergency_alert':
+                        handleEmergencyAlert(message.data);
+                        break;
+                }
+            } catch (error) {
+                console.error('Error processing WebSocket message:', error);
+            }
+        });
+        
+        window.wsMessageHandlersRegistered = true;
+        console.log('WebSocket message handlers registered for trading controls');
+    }
+}
+
+// Setup event listeners
+function setupEventListeners() {
+    // Buy button
+    document.getElementById('buy-btn').addEventListener('click', async () => {
+        await executeTrade('buy');
+    });
+    
+    // Sell buttons
+    document.getElementById('sell-25-btn').addEventListener('click', async () => {
+        await executeSell(25);
+    });
+    document.getElementById('sell-50-btn').addEventListener('click', async () => {
+        await executeSell(50);
+    });
+    document.getElementById('sell-75-btn').addEventListener('click', async () => {
+        await executeSell(75);
+    });
+    document.getElementById('sell-full-btn').addEventListener('click', async () => {
+        await executeSell(100);
+    });
+    
+    // Position selector
+    document.getElementById('position-selector').addEventListener('change', (e) => {
+        const positionId = e.target.value;
+        displayPositionDetails(positionId);
+    });
+    
+    // Emergency exit
+    document.getElementById('emergency-exit-btn').addEventListener('click', async () => {
+        await executeEmergencyExit();
+    });
+    
+    // Reset emergency
+    document.getElementById('reset-emergency-btn').addEventListener('click', async () => {
+        await resetEmergencyStop();
+    });
+    
+    // Update stop loss/take profit
+    document.getElementById('update-sl-btn').addEventListener('click', async () => {
+        await updateStopLoss();
+    });
+    document.getElementById('update-tp-btn').addEventListener('click', async () => {
+        await updateTakeProfit();
+    });
+    
+    // Auto trading toggle
+    document.getElementById('toggle-auto-trading').addEventListener('click', async () => {
+        await toggleAutoTrading();
+    });
+    
+    // Wallet configuration
+    document.getElementById('configure-wallet').addEventListener('click', () => {
+        showWalletConfigModal();
+    });
+}
+
+// Initialize trading controls
+function initializeTradeControls() {
+    // Fetch positions and set up position selector
+    fetchPositions();
+    
+    // Subscribe to WebSocket updates
+    setTimeout(() => {
+        subscribeToTradingUpdates();
+    }, 1000);
+}
+
+// Fetch current active positions
+async function fetchPositions() {
+    try {
+        const response = await fetch('/api/active-positions');
+        const data = await response.json();
+        
+        if (data && data.positions) {
+            updatePositionsList(data.positions);
+        }
+    } catch (error) {
+        console.error('Error fetching positions:', error);
+        showTradingFeedback('Failed to load positions', 'error');
+    }
+}
+
+// Update positions list in selector
+function updatePositionsList(newPositions) {
+    positions = newPositions;
+    
+    const positionSelector = document.getElementById('position-selector');
+    const currentSelection = positionSelector.value;
+    
+    // Clear existing options
+    positionSelector.innerHTML = '<option value="">Select Position</option>';
+    
+    // Add positions to selector
+    positions.forEach(position => {
+        const option = document.createElement('option');
+        option.value = position.id;
+        option.textContent = `${position.symbol} (${position.size})`;
+        positionSelector.appendChild(option);
+    });
+    
+    // Restore previous selection if still exists
+    if (currentSelection) {
+        positionSelector.value = currentSelection;
+        
+        // If current selection still exists, update details
+        if (positionSelector.value === currentSelection) {
+            displayPositionDetails(currentSelection);
+        }
+    }
+}
+
+// Display details for selected position
+function displayPositionDetails(positionId) {
+    const detailsContainer = document.getElementById('position-details');
+    if (!positionId) {
+        detailsContainer.innerHTML = '<div class="no-position">No position selected</div>';
+        return;
+    }
+    
+    const position = positions.find(p => p.id === positionId);
+    if (!position) {
+        detailsContainer.innerHTML = '<div class="no-position">Position not found</div>';
+        return;
+    }
+    
+    // Format P&L class based on value
+    const plClass = position.pl_percent >= 0 ? 'success' : 'danger';
+    const plPrefix = position.pl_percent >= 0 ? '+' : '';
+    
+    // Create HTML for position details
+    const html = `
+        <div class="position-detail-item">
+            <div class="detail-label">Symbol:</div>
+            <div class="detail-value">${position.symbol}</div>
+        </div>
+        <div class="position-detail-item">
+            <div class="detail-label">Size:</div>
+            <div class="detail-value">${position.size}</div>
+        </div>
+        <div class="position-detail-item">
+            <div class="detail-label">Entry:</div>
+            <div class="detail-value">${position.entry_price || 'N/A'}</div>
+        </div>
+        <div class="position-detail-item">
+            <div class="detail-label">Current:</div>
+            <div class="detail-value">${position.current_price || 'N/A'}</div>
+        </div>
+        <div class="position-detail-item">
+            <div class="detail-label">P&L:</div>
+            <div class="detail-value ${plClass}">${plPrefix}${position.pl_percent}%</div>
+        </div>
+    `;
+    
+    detailsContainer.innerHTML = html;
+}
+
+// Execute buy trade
+async function executeTrade(action) {
+    try {
+        const tokenMint = document.getElementById('token-mint').value.trim();
+        const tokenSymbol = document.getElementById('token-symbol').value.trim();
+        const solAmount = parseFloat(document.getElementById('trade-amount').value);
+        const stopLoss = parseFloat(document.getElementById('stop-loss').value);
+        const takeProfit = parseFloat(document.getElementById('take-profit').value);
+        const slippage = parseFloat(document.getElementById('slippage').value);
+        const autoTpSl = document.getElementById('auto-tp-sl').checked;
+        
+        // Validate inputs
+        if (!tokenMint) {
+            showTradingFeedback('Token mint address is required', 'error');
+            return;
+        }
+        
+        if (!tokenSymbol) {
+            showTradingFeedback('Token symbol is required', 'error');
+            return;
+        }
+        
+        if (isNaN(solAmount) || solAmount <= 0) {
+            showTradingFeedback('Valid trade amount is required', 'error');
+            return;
+        }
+        
+        // Show pending message
+        showTradingFeedback('Executing trade...', 'warning');
+        
+        // Prepare trade data
+        const tradeData = {
+            token_mint: tokenMint,
+            token_symbol: tokenSymbol,
+            sol_amount: solAmount,
+            action: action,
+            stop_loss_pct: stopLoss,
+            take_profit_pct: takeProfit,
+            max_slippage: slippage,
+            auto_tp_sl: autoTpSl
+        };
+        
+        // Execute API call
+        const response = await fetch('/api/manual-trade', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(tradeData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showTradingFeedback(`Trade executed successfully!`, 'success');
+            // Refresh positions list
+            setTimeout(() => fetchPositions(), 1000);
+        } else {
+            showTradingFeedback(`Trade failed: ${result.error || 'Unknown error'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error executing trade:', error);
+        showTradingFeedback('Error executing trade', 'error');
+    }
+}
+
+// Execute sell trade
+async function executeSell(percentage) {
+    try {
+        const positionSelector = document.getElementById('position-selector');
+        const positionId = positionSelector.value;
+        
+        if (!positionId) {
+            showTradingFeedback('No position selected', 'error');
+            return;
+        }
+        
+        // Show pending message
+        showTradingFeedback(`Selling ${percentage}% of position...`, 'warning');
+        
+        // Prepare sell data
+        const sellData = {
+            position_id: positionId,
+            sell_percentage: percentage,
+            action: 'sell',
+            reason: 'Manual sell'
+        };
+        
+        // Execute API call
+        const response = await fetch('/api/manual-trade', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(sellData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showTradingFeedback(`Sell executed successfully!`, 'success');
+            // Refresh positions list
+            setTimeout(() => fetchPositions(), 1000);
+        } else {
+            showTradingFeedback(`Sell failed: ${result.error || 'Unknown error'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error executing sell:', error);
+        showTradingFeedback('Error executing sell', 'error');
+    }
+}
+
+// Execute emergency exit
+async function executeEmergencyExit() {
+    try {
+        if (!confirm('⚠️ EMERGENCY EXIT: Are you sure you want to close ALL positions?')) {
+            return;
+        }
+        
+        showTradingFeedback('Executing emergency exit...', 'warning');
+        
+        const response = await fetch('/api/emergency-exit', {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showTradingFeedback('Emergency exit executed successfully!', 'success');
+            // Update emergency status
+            emergencyActive = true;
+            updateEmergencyDisplay();
+            // Refresh positions list
+            setTimeout(() => fetchPositions(), 1000);
+        } else {
+            showTradingFeedback(`Emergency exit failed: ${result.error || 'Unknown error'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error executing emergency exit:', error);
+        showTradingFeedback('Error executing emergency exit', 'error');
+    }
+}
+
+// Reset emergency stop
+async function resetEmergencyStop() {
+    try {
+        showTradingFeedback('Resetting emergency stop...', 'warning');
+        
+        const response = await fetch('/api/reset-emergency-stop', {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showTradingFeedback('Emergency stop reset successfully!', 'success');
+            // Update emergency status
+            emergencyActive = false;
+            updateEmergencyDisplay();
+        } else {
+            showTradingFeedback(`Reset failed: ${result.error || 'Unknown error'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error resetting emergency stop:', error);
+        showTradingFeedback('Error resetting emergency stop', 'error');
+    }
+}
+
+// Update stop loss
+async function updateStopLoss() {
+    try {
+        const positionSelector = document.getElementById('position-selector');
+        const positionId = positionSelector.value;
+        
+        if (!positionId) {
+            showTradingFeedback('No position selected', 'error');
+            return;
+        }
+        
+        // Prompt for new stop loss percentage
+        const newStopLoss = prompt('Enter new stop loss percentage:');
+        if (newStopLoss === null) return;
+        
+        const stopLossValue = parseFloat(newStopLoss);
+        if (isNaN(stopLossValue) || stopLossValue <= 0 || stopLossValue >= 100) {
+            showTradingFeedback('Invalid stop loss value', 'error');
+            return;
+        }
+        
+        showTradingFeedback('Updating stop loss...', 'warning');
+        
+        // Prepare update data
+        const updateData = {
+            position_id: positionId,
+            stop_loss_pct: stopLossValue,
+            update_type: 'stop_loss'
+        };
+        
+        // Execute API call
+        const response = await fetch('/api/update-position', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updateData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showTradingFeedback(`Stop loss updated to ${stopLossValue}%`, 'success');
+            // Refresh positions list
+            setTimeout(() => fetchPositions(), 1000);
+        } else {
+            showTradingFeedback(`Update failed: ${result.error || 'Unknown error'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error updating stop loss:', error);
+        showTradingFeedback('Error updating stop loss', 'error');
+    }
+}
+
+// Update take profit
+async function updateTakeProfit() {
+    try {
+        const positionSelector = document.getElementById('position-selector');
+        const positionId = positionSelector.value;
+        
+        if (!positionId) {
+            showTradingFeedback('No position selected', 'error');
+            return;
+        }
+        
+        // Prompt for new take profit percentage
+        const newTakeProfit = prompt('Enter new take profit percentage:');
+        if (newTakeProfit === null) return;
+        
+        const takeProfitValue = parseFloat(newTakeProfit);
+        if (isNaN(takeProfitValue) || takeProfitValue <= 0) {
+            showTradingFeedback('Invalid take profit value', 'error');
+            return;
+        }
+        
+        showTradingFeedback('Updating take profit...', 'warning');
+        
+        // Prepare update data
+        const updateData = {
+            position_id: positionId,
+            take_profit_pct: takeProfitValue,
+            update_type: 'take_profit'
+        };
+        
+        // Execute API call
+        const response = await fetch('/api/update-position', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updateData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showTradingFeedback(`Take profit updated to ${takeProfitValue}%`, 'success');
+            // Refresh positions list
+            setTimeout(() => fetchPositions(), 1000);
+        } else {
+            showTradingFeedback(`Update failed: ${result.error || 'Unknown error'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error updating take profit:', error);
+        showTradingFeedback('Error updating take profit', 'error');
+    }
+}
+
+// Toggle auto trading
+async function toggleAutoTrading() {
+    try {
+        if (!walletConfigured) {
+            showTradingFeedback('Wallet must be configured before enabling auto trading', 'error');
+            return;
+        }
+        
+        const newState = !autoTradingEnabled;
+        showTradingFeedback(`${newState ? 'Enabling' : 'Disabling'} auto trading...`, 'warning');
+        
+        const response = await fetch('/api/enable-auto-trading', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                enable: newState
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            autoTradingEnabled = newState;
+            showTradingFeedback(`Auto trading ${newState ? 'enabled' : 'disabled'} successfully!`, 'success');
+            updateAutoTradingDisplay();
+        } else {
+            showTradingFeedback(`Failed to ${newState ? 'enable' : 'disable'} auto trading: ${result.error || 'Unknown error'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error toggling auto trading:', error);
+        showTradingFeedback('Error toggling auto trading', 'error');
+    }
+}
+
+// Show wallet configuration modal
+function showWalletConfigModal() {
+    const privateKey = prompt('Enter wallet private key (keep this safe!)');
+    if (!privateKey) return;
+    
+    configureWallet(privateKey);
+}
+
+// Configure wallet
+async function configureWallet(privateKey) {
+    try {
+        showTradingFeedback('Configuring wallet...', 'warning');
+        
+        const response = await fetch('/api/configure-wallet', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                private_key: privateKey
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            walletConfigured = true;
+            showTradingFeedback('Wallet configured successfully!', 'success');
+            updateWalletDisplay(result.wallet_address, result.balance);
+        } else {
+            showTradingFeedback(`Wallet configuration failed: ${result.error || 'Unknown error'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error configuring wallet:', error);
+        showTradingFeedback('Error configuring wallet', 'error');
+    }
+}
+
+// Fetch trading status
+async function fetchTradingStatus() {
+    try {
+        const response = await fetch('/api/trading-status');
+        const data = await response.json();
+        
+        if (data) {
+            updateTradingStatus(data);
+        }
+    } catch (error) {
+        console.error('Error fetching trading status:', error);
+    }
+}
+
+// Update trading status display
+function updateTradingStatus(data) {
+    // Update wallet status
+    walletConfigured = data.wallet_configured || false;
+    if (data.wallet_address && data.sol_balance !== undefined) {
+        updateWalletDisplay(data.wallet_address, data.sol_balance);
+    }
+    
+    // Update auto trading status
+    autoTradingEnabled = data.auto_trading_enabled || false;
+    updateAutoTradingDisplay();
+    
+    // Update risk level
+    const riskMetrics = data.risk_metrics || {};
+    const riskLevel = riskMetrics.risk_level || 'MEDIUM';
+    updateRiskLevelDisplay(riskLevel);
+    
+    // Update emergency status
+    emergencyActive = data.emergency_stop || false;
+    updateEmergencyDisplay();
+    
+    // Update toggle buttons
+    const autoTradingBtn = document.getElementById('toggle-auto-trading');
+    if (autoTradingBtn) {
+        autoTradingBtn.textContent = autoTradingEnabled ? 'DISABLE AUTO TRADING' : 'ENABLE AUTO TRADING';
+        autoTradingBtn.classList.toggle('active', autoTradingEnabled);
+    }
+    
+    const walletBtn = document.getElementById('configure-wallet');
+    if (walletBtn) {
+        walletBtn.textContent = walletConfigured ? 'WALLET CONFIGURED' : 'CONFIGURE WALLET';
+        walletBtn.classList.toggle('active', walletConfigured);
+    }
+}
+
+// Update wallet display
+function updateWalletDisplay(address, balance) {
+    const walletStatus = document.getElementById('wallet-status');
+    const walletBalance = document.getElementById('wallet-balance');
+    
+    if (walletStatus) {
+        const dot = walletStatus.querySelector('.dot');
+        const statusText = walletStatus.querySelector('.status-text');
+        
+        dot.className = 'dot on';
+        statusText.textContent = address ? 
+            `${address.slice(0, 4)}...${address.slice(-4)}` : 
+            'CONFIGURED';
+    }
+    
+    if (walletBalance && balance !== undefined) {
+        walletBalance.textContent = `${balance.toFixed(2)} SOL`;
+    }
+}
+
+// Update auto trading display
+function updateAutoTradingDisplay() {
+    const autoTradingStatus = document.getElementById('auto-trading-status');
+    
+    if (autoTradingStatus) {
+        const dot = autoTradingStatus.querySelector('.dot');
+        const statusText = autoTradingStatus.querySelector('.status-text');
+        
+        dot.className = `dot ${autoTradingEnabled ? 'on' : 'off'}`;
+        statusText.textContent = autoTradingEnabled ? 'ACTIVE' : 'OFF';
+    }
+}
+
+// Update risk level display
+function updateRiskLevelDisplay(level) {
+    const riskLevel = document.getElementById('risk-level');
+    
+    if (riskLevel) {
+        const dot = riskLevel.querySelector('.dot');
+        const statusText = riskLevel.querySelector('.status-text');
+        
+        let className = 'medium';
+        if (level === 'LOW') className = 'on';
+        if (level === 'HIGH') className = 'warning';
+        if (level === 'EXTREME') className = 'danger';
+        
+        dot.className = `dot ${className}`;
+        statusText.textContent = level;
+    }
+}
+
+// Update emergency display
+function updateEmergencyDisplay() {
+    const emergencyStatus = document.getElementById('emergency-status');
+    
+    if (emergencyStatus) {
+        const dot = emergencyStatus.querySelector('.dot');
+        const statusText = emergencyStatus.querySelector('.status-text');
+        
+        dot.className = `dot ${emergencyActive ? 'danger' : 'off'}`;
+        statusText.textContent = emergencyActive ? 'ACTIVE' : 'INACTIVE';
+    }
+}
+
+// Show trading feedback message
+function showTradingFeedback(message, type = 'info') {
+    const feedback = document.getElementById('trading-feedback');
+    if (!feedback) return;
+    
+    const feedbackMessage = feedback.querySelector('.feedback-message');
+    if (!feedbackMessage) return;
+    
+    // Reset classes
+    feedbackMessage.className = 'feedback-message';
+    
+    // Add type-specific class
+    if (type) {
+        feedbackMessage.classList.add(type);
+    }
+    
+    // Set message text
+    feedbackMessage.textContent = message;
+    
+    // Clear message after 5 seconds if it's a success message
+    if (type === 'success') {
+        setTimeout(() => {
+            if (feedbackMessage.textContent === message) {
+                feedbackMessage.textContent = 'System ready for trading';
+                feedbackMessage.className = 'feedback-message';
+            }
+        }, 5000);
+    }
+}
+
+// Handle trade execution notification
+function handleTradeExecution(data) {
+    if (data.success) {
+        const action = data.action ? data.action.toLowerCase() : 'trade';
+        const symbol = data.token_symbol || data.token || 'token';
+        showTradingFeedback(`${action} ${symbol} executed successfully!`, 'success');
+        
+        // Refresh positions list
+        setTimeout(() => fetchPositions(), 1000);
+    } else {
+        showTradingFeedback(`Trade failed: ${data.error || 'Unknown error'}`, 'error');
+    }
+}
+
+// Handle emergency alerts
+function handleEmergencyAlert(data) {
+    emergencyActive = true;
+    updateEmergencyDisplay();
+    
+    // Show alert message
+    showTradingFeedback(`EMERGENCY ALERT: ${data.message}`, 'error');
+    
+    // Display as system notification if browser supports it
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Trading Emergency Alert', {
+            body: data.message,
+            icon: '/favicon.ico'
+        });
+    }
+}
+
+// Make functions available globally
+window.tradingControls = {
+    updatePositionsList,
+    handleTradeExecution,
+    handleEmergencyAlert,
+    showTradingFeedback
+};
+</script>

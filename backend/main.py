@@ -313,8 +313,13 @@ async def get_meme_scanner_api():
 async def get_signal_feed_api():
     """Get trading signals"""
     try:
-        aggregator = SignalAggregator()
-        return aggregator.get_trading_signals()
+        # Use the existing signal aggregator instance
+        if not hasattr(signal_aggregator, "get_trading_signals"):
+            logger.warning("Signal aggregator missing get_trading_signals method")
+            # Fallback to creating a new instance
+            aggregator = SignalAggregator()
+            return aggregator.get_trading_signals()
+        return signal_aggregator.get_trading_signals()
     except Exception as e:
         logger.error(f"Signal feed error: {e}")
         return JSONResponse(
@@ -339,8 +344,13 @@ async def get_market_analysis_api():
 async def get_ai_analysis_api():
     """Get AI analysis data"""
     try:
-        analyzer = NeuralAnalyzer()
-        return analyzer.get_ai_analysis()
+        # Use the existing neural analyzer instance
+        if not hasattr(neural_analyzer, "get_ai_analysis"):
+            logger.warning("Neural analyzer missing get_ai_analysis method")
+            # Fallback to creating a new instance
+            analyzer = NeuralAnalyzer()
+            return analyzer.get_ai_analysis()
+        return neural_analyzer.get_ai_analysis()
     except Exception as e:
         logger.error(f"AI analysis error: {e}")
         return JSONResponse(
