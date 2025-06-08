@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<div class="performance-metrics-container">
+    <h2>PERFORMANCE METRICS
+        <span style="float: right; font-size: 0.9em; font-family: 'Courier New', monospace; color: #00ff00; font-weight: normal;">
+            <span id="performance-timeframe">24H</span>
+        </span>
+    </h2>
+
+    <div class="performance-content">
+        <div class="chart-container">
+            <!-- Price / P&L Chart -->
+            <div id="performance-chart-container" class="chart-panel">
+                <div class="chart-header">
+                    <div class="chart-title">P&L PERFORMANCE</div>
+                    <div class="chart-actions">
+                        <button class="chart-timeframe-btn active" data-timeframe="24h">24H</button>
+                        <button class="chart-timeframe-btn" data-timeframe="7d">7D</button>
+                        <button class="chart-timeframe-btn" data-timeframe="30d">30D</button>
+                    </div>
+                </div>
+                <div id="pnl-chart" class="chart-canvas" style="height:140px;"></div>
+            </div>
+            
+            <!-- Performance Metrics -->
+            <div class="metrics-container matrix-box">
+                <div class="metric-row">
+                    <div class="metric-item">
+                        <div class="metric-title">WIN RATE</div>
+                        <div class="metric-value" id="win-rate-metric">0%</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-title">AVG WIN</div>
+                        <div class="metric-value success" id="avg-win-metric">0%</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-title">AVG LOSS</div>
+                        <div class="metric-value danger" id="avg-loss-metric">0%</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-title">TRADES</div>
+                        <div class="metric-value" id="total-trades-metric">0</div>
+                    </div>
+                </div>
+                
+                <div class="metric-row">
+                    <div class="metric-item">
+                        <div class="metric-title">REALIZED P&L</div>
+                        <div class="metric-value" id="realized-pnl-metric">$0.00</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-title">UNREALIZED</div>
+                        <div class="metric-value" id="unrealized-pnl-metric">$0.00</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-title">ROI</div>
+                        <div class="metric-value" id="roi-metric">0%</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-title">DRAWDOWN</div>
+                        <div class="metric-value warning" id="drawdown-metric">0%</div>
+                    </div>
+                </div>
+                
+                <div class="matrix-grid"></div>
+            </div>
+            
+            <!-- Trade History Summary -->
+            <div class="trades-summary">
+                <div class="section-title">
+                    📊 TRADE HISTORY
+                </div>
+                <div class="trades-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Token</th>
+                                <th>Type</th>
+                                <th>Size</th>
+                                <th>P&L</th>
+                            </tr>
+                        </thead>
+                        <tbody id="trade-history-body">
+                            <tr>
+                                <td colspan="5" class="empty-table">No recent trades</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.performance-metrics-container {
+    height: 39.5vh;
+    display: flex;
+    flex-direction: column;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+    background: transparent;
+}
+
+.performance-metrics-container h2 {
+    padding: 0.5vh;
+    margin: 0 !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 3 !important;
+    background: linear-gradient(90deg, #001100 0%, #000300 100%);
+    border-bottom: 1px solid #00ff00;
+    font-family: 'Courier New', monospace;
+    color: #00ff00;
+    font-size: 1.24vh;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: normal;
+}
+
+.performance-content {
+    position: absolute !important;
+    top: 3vh !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    overflow-y: auto !important;
+    padding: 0.5vh !important;
+    background: rgba(0, 5, 0, 0.2);
+    font-family: 'Courier New', monospace;
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+}
+
+.performance-content::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+}
+
+.chart-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5vh;
+    height: 100%;
+}
+
+.chart-panel {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 255, 0, 0.1);
+    padding: 0.5vh;
+    position: relative;
+}
+
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5vh;
+}
+
+.chart-title {
+    color: #00ff00;
+    font-size: 1.24vh;
+}
+
+.chart-actions {
+    display: flex;
+    gap: 0.5vh;
+}
+
+.chart-timeframe-btn {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(0, 255, 0, 0.3);
+    color: #00ff00;
+    font-size: 1vh;
+    padding: 0.1vh 0.5vh;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+}
+
+.chart-timeframe-btn.active {
+    background: rgba(0, 255, 0, 0.2);
+    border: 1px solid rgba(0, 255, 0, 0.5);
+}
+
+.chart-canvas {
+    width: 100%;
+    height: 100%;
+}
+
+/* Metrics section */
+.metrics-container {
+    padding: 1vh;
+    position: relative;
+}
+
+.metric-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5vh;
+    margin-bottom: 0.5vh;
+}
+
+.metric-item {
+    flex: 1;
+    text-align: center;
+}
+
+.metric-title {
+    font-size: 1vh;
+    color: #8b949e;
+    margin-bottom: 0.2vh;
+}
+
+.metric-value {
+    font-size: 1.24vh;
+    color: #00ff00;
+    font-weight: normal;
+}
+
+.metric-value.success {
+    color: #00ff00;
+}
+
+.metric-value.danger {
+    color: #ff0000;
+}
+
+.metric-value.warning {
+    color: #ff9800;
+}
+
+/* Trade history */
+.trades-summary {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 255, 0, 0.1);
+    padding: 0.5vh;
+}
+
+.section-title {
+    color: #00ff00;
+    font-size: 1.24vh;
+    margin-bottom: 0.5vh;
+    font-weight: normal;
+}
+
+.trades-table-container {
+    max-height: 10vh;
+    overflow-y: auto;
+}
+
+.empty-table {
+    text-align: center;
+    color: #8b949e;
+    padding: 1vh;
+}
+</style>
+
+<script>
+// Initialize charts and performance metrics
+let performanceChart = null;
+
+// Load performance metrics
+async function loadPerformanceMetrics(preloadedData = null) {
+    try {
+        let data;
+        if (preloadedData) {
+            // Use preloaded data from WebSocket
+            data = preloadedData;
+            console.log('Using preloaded performance data from WebSocket');
+        } else {
+            // Fetch from API
+            const response = await fetch('/api/performance-metrics');
+            data = await response.json();
+            console.log('Performance data loaded from API', data);
+        }
+        
+        // Update metrics
+        if (data && data.performance) {
+            updateMetrics(data.performance);
+        }
+        
+        // Update chart
+        if (data && data.pnl_history) {
+            updateChart(data.pnl_history);
+        }
+        
+        // Update trade history
+        if (data && data.trade_history) {
+            updateTradeHistory(data.trade_history);
+        }
+    } catch (error) {
+        console.error('Error loading performance metrics:', error);
+        // Use sample data if available
+        loadSampleData();
+    }
+}
+
+// Update performance metrics
+function updateMetrics(performance) {
+    document.getElementById('win-rate-metric').textContent = `${performance.win_rate || '0'}%`;
+    document.getElementById('avg-win-metric').textContent = `${performance.avg_win || '0'}%`;
+    document.getElementById('avg-loss-metric').textContent = `${performance.avg_loss || '0'}%`;
+    document.getElementById('total-trades-metric').textContent = performance.total_trades || '0';
+    
+    document.getElementById('realized-pnl-metric').textContent = `$${(performance.realized_pnl || 0).toFixed(2)}`;
+    document.getElementById('unrealized-pnl-metric').textContent = `$${(performance.unrealized_pnl || 0).toFixed(2)}`;
+    document.getElementById('roi-metric').textContent = `${performance.roi || '0'}%`;
+    document.getElementById('drawdown-metric').textContent = `${performance.max_drawdown || '0'}%`;
+    
+    // Add appropriate classes based on values
+    const realizedPnl = document.getElementById('realized-pnl-metric');
+    const unrealizedPnl = document.getElementById('unrealized-pnl-metric');
+    const roi = document.getElementById('roi-metric');
+    
+    if (performance.realized_pnl > 0) {
+        realizedPnl.classList.add('success');
+        realizedPnl.classList.remove('danger');
+    } else if (performance.realized_pnl < 0) {
+        realizedPnl.classList.add('danger');
+        realizedPnl.classList.remove('success');
+    } else {
+        realizedPnl.classList.remove('success', 'danger');
+    }
+    
+    if (performance.unrealized_pnl > 0) {
+        unrealizedPnl.classList.add('success');
+        unrealizedPnl.classList.remove('danger');
+    } else if (performance.unrealized_pnl < 0) {
+        unrealizedPnl.classList.add('danger');
+        unrealizedPnl.classList.remove('success');
+    } else {
+        unrealizedPnl.classList.remove('success', 'danger');
+    }
+    
+    if (performance.roi > 0) {
+        roi.classList.add('success');
+        roi.classList.remove('danger');
+    } else if (performance.roi < 0) {
+        roi.classList.add('danger');
+        roi.classList.remove('success');
+    } else {
+        roi.classList.remove('success', 'danger');
+    }
+}
+
+// Initialize and update the chart
+function updateChart(pnlHistory) {
+    // Format data for chart
+    const chartData = pnlHistory.map(item => ({
+        time: new Date(item.timestamp).getTime(),
+        value: item.value
+    }));
+    
+    // Initialize chart if not exists
+    if (!performanceChart) {
+        // Make sure the DashboardChart class is loaded
+        if (window.DashboardChart) {
+            performanceChart = new DashboardChart('pnl-chart', {
+                type: 'line',
+                height: 140,
+                showVolume: false,
+                colors: {
+                    line: '#00ff00'
+                }
+            });
+        } else {
+            console.error('DashboardChart class not loaded');
+            return;
+        }
+    }
+    
+    // Update chart data
+    performanceChart.setData(chartData);
+}
+
+// Update trade history table
+function updateTradeHistory(trades) {
+    const tableBody = document.getElementById('trade-history-body');
+    
+    // Clear table
+    tableBody.innerHTML = '';
+    
+    if (!trades || trades.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="5" class="empty-table">No recent trades</td></tr>';
+        return;
+    }
+    
+    // Add trade rows
+    trades.forEach(trade => {
+        const row = document.createElement('tr');
+        
+        // Format date
+        const date = new Date(trade.timestamp);
+        const formattedDate = `${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+        
+        // Format P&L with class
+        const pnlClass = trade.pnl >= 0 ? 'positive' : 'negative';
+        const formattedPnL = `${trade.pnl >= 0 ? '+' : ''}${trade.pnl}%`;
+        
+        row.innerHTML = `
+            <td>${formattedDate}</td>
+            <td>${trade.symbol}</td>
+            <td>${trade.side.toUpperCase()}</td>
+            <td>${trade.size}</td>
+            <td class="${pnlClass}">${formattedPnL}</td>
+        `;
+        
+        tableBody.appendChild(row);
+    });
+}
+
+// Set up timeframe buttons
+function setupTimeframeButtons() {
+    const timeframeButtons = document.querySelectorAll('.chart-timeframe-btn');
+    const timeframeDisplay = document.getElementById('performance-timeframe');
+    
+    timeframeButtons.forEach(button => {
+        button.addEventListener('click', async () => {
+            // Update active button
+            timeframeButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            
+            // Update timeframe display
+            const timeframe = button.getAttribute('data-timeframe');
+            timeframeDisplay.textContent = timeframe.toUpperCase();
+            
+            try {
+                // Fetch data for selected timeframe
+                const response = await fetch(`/api/performance-metrics?timeframe=${timeframe}`);
+                const data = await response.json();
+                
+                // Update chart with new data
+                if (data && data.pnl_history) {
+                    updateChart(data.pnl_history);
+                }
+                
+                // Update metrics for selected timeframe
+                if (data && data.performance) {
+                    updateMetrics(data.performance);
+                }
+            } catch (error) {
+                console.error(`Error fetching ${timeframe} data:`, error);
+            }
+        });
+    });
+}
+
+// Load sample data for development/testing
+function loadSampleData() {
+    // Sample performance data
+    const samplePerformance = {
+        win_rate: 68,
+        avg_win: 8.2,
+        avg_loss: -3.5,
+        total_trades: 25,
+        realized_pnl: 4.53,
+        unrealized_pnl: 1.27,
+        roi: 5.8,
+        max_drawdown: 2.1
+    };
+    
+    // Sample PnL history (last 24 hours with hourly data points)
+    const now = Date.now();
+    const samplePnlHistory = [];
+    let currentValue = 0;
+    
+    for (let i = 24; i >= 0; i--) {
+        // Create some random movement
+        const change = (Math.random() - 0.3) * 0.8; 
+        currentValue += change;
+        
+        samplePnlHistory.push({
+            timestamp: new Date(now - i * 3600 * 1000).toISOString(),
+            value: currentValue
+        });
+    }
+    
+    // Sample trade history
+    const sampleTradeHistory = [
+        {
+            timestamp: new Date(now - 2 * 3600 * 1000).toISOString(),
+            symbol: 'SOL',
+            side: 'buy',
+            size: '0.5',
+            pnl: 0
+        },
+        {
+            timestamp: new Date(now - 5 * 3600 * 1000).toISOString(),
+            symbol: 'BONK',
+            side: 'sell',
+            size: '120000',
+            pnl: 12.5
+        },
+        {
+            timestamp: new Date(now - 12 * 3600 * 1000).toISOString(),
+            symbol: 'JUP',
+            side: 'buy',
+            size: '10',
+            pnl: -2.3
+        }
+    ];
+    
+    // Update UI with sample data
+    updateMetrics(samplePerformance);
+    updateChart(samplePnlHistory);
+    updateTradeHistory(sampleTradeHistory);
+}
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    // First, try to load the chart library
+    const chartScript = document.createElement('script');
+    chartScript.src = './chart-component.js';
+    chartScript.onload = () => {
+        console.log('Chart library loaded');
+        // Load metrics after chart library is available
+        loadPerformanceMetrics();
+    };
+    chartScript.onerror = () => {
+        console.error('Failed to load chart library');
+        // Still load metrics without chart
+        loadPerformanceMetrics();
+    };
+    document.head.appendChild(chartScript);
+    
+    // Set up timeframe buttons
+    setupTimeframeButtons();
+});
+
+// Make function globally available for WebSocket updates
+window.loadPerformanceMetrics = loadPerformanceMetrics;
+</script>

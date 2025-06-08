@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Integration Test</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #000000;
+            color: #00ff00;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1, h2, h3 {
+            color: #00ff00;
+        }
+        
+        .card {
+            border: 1px solid #00ff00;
+            padding: 20px;
+            margin-bottom: 20px;
+            background-color: rgba(0, 20, 0, 0.2);
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(0, 255, 0, 0.3);
+            margin-bottom: 20px;
+        }
+        
+        .status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-left: 10px;
+        }
+        
+        .status.connected {
+            background-color: rgba(0, 255, 0, 0.2);
+            color: #00ff00;
+        }
+        
+        .status.disconnected {
+            background-color: rgba(255, 0, 0, 0.2);
+            color: #ff0000;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            background-color: rgba(0, 50, 0, 0.5);
+            border: 1px solid #00aa00;
+            color: #00ff00;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+        }
+        
+        button:hover {
+            background-color: rgba(0, 100, 0, 0.5);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .config {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        input {
+            background-color: rgba(0, 20, 0, 0.4);
+            border: 1px solid #00aa00;
+            color: #00ff00;
+            padding: 10px;
+            flex-grow: 1;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .log-container {
+            max-height: 400px;
+            overflow-y: auto;
+            background-color: rgba(0, 0, 0, 0.8);
+            border: 1px solid #003300;
+            padding: 10px;
+            margin-top: 20px;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            font-size: 14px;
+            display: flex;
+        }
+        
+        .log-time {
+            color: #999;
+            margin-right: 10px;
+            flex: 0 0 150px;
+        }
+        
+        .log-message {
+            flex: 1;
+        }
+        
+        .log-message.received {
+            color: #00ff00;
+        }
+        
+        .log-message.sent {
+            color: #00aaff;
+        }
+        
+        .log-message.system {
+            color: #ffaa00;
+        }
+        
+        .log-message.error {
+            color: #ff0000;
+        }
+        
+        .subscriptions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 10px;
+        }
+        
+        .subscription-item {
+            background-color: rgba(0, 50, 0, 0.5);
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            color: #00ff00;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        
+        pre {
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border: 1px solid #003300;
+            overflow-x: auto;
+            margin-top: 10px;
+        }
+        
+        .message-viewer {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="header">
+                <h1>WebSocket Integration Test</h1>
+                <div>
+                    Status: <span id="connection-status" class="status disconnected">DISCONNECTED</span>
+                </div>
+            </div>
+            
+            <div class="config">
+                <input type="text" id="ws-url" value="ws://localhost:8000/ws" placeholder="WebSocket URL">
+            </div>
+            
+            <div class="controls">
+                <button id="connect-btn">Connect</button>
+                <button id="disconnect-btn" disabled>Disconnect</button>
+                <button id="run-test-btn">Run Test Sequence</button>
+                <button id="clear-log-btn">Clear Log</button>
+            </div>
+            
+            <div class="card">
+                <h3>Subscriptions</h3>
+                <div class="controls">
+                    <input type="text" id="channel-input" placeholder="Channel name (e.g., active_positions)">
+                    <button id="subscribe-btn" disabled>Subscribe</button>
+                </div>
+                <div id="subscriptions-list" class="subscriptions">
+                    <!-- Subscription items will be added here -->
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Send Message</h3>
+                <div class="controls">
+                    <input type="text" id="message-input" placeholder="Message in JSON format">
+                    <button id="send-btn" disabled>Send</button>
+                    <button id="ping-btn" disabled>Send Ping</button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Message Log</h3>
+                <div id="log-container" class="log-container">
+                    <!-- Log entries will be added here -->
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Latest Message</h3>
+                <div id="message-viewer" class="message-viewer">
+                    <pre id="message-content">No messages received yet</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="test-websocket.js"></script>
+    <script>
+        // Global WebSocket tester instance
+        let tester = window.wsTest;
+        
+        // DOM Elements
+        const connectBtn = document.getElementById('connect-btn');
+        const disconnectBtn = document.getElementById('disconnect-btn');
+        const runTestBtn = document.getElementById('run-test-btn');
+        const clearLogBtn = document.getElementById('clear-log-btn');
+        const subscribeBtn = document.getElementById('subscribe-btn');
+        const sendBtn = document.getElementById('send-btn');
+        const pingBtn = document.getElementById('ping-btn');
+        
+        const wsUrlInput = document.getElementById('ws-url');
+        const channelInput = document.getElementById('channel-input');
+        const messageInput = document.getElementById('message-input');
+        
+        const connectionStatus = document.getElementById('connection-status');
+        const logContainer = document.getElementById('log-container');
+        const subscriptionsList = document.getElementById('subscriptions-list');
+        const messageContent = document.getElementById('message-content');
+        
+        // Update UI based on connection status
+        function updateConnectionStatus(connected) {
+            if (connected) {
+                connectionStatus.textContent = 'CONNECTED';
+                connectionStatus.className = 'status connected';
+                
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                subscribeBtn.disabled = false;
+                sendBtn.disabled = false;
+                pingBtn.disabled = false;
+                
+                addLogEntry('Connected to server', 'system');
+            } else {
+                connectionStatus.textContent = 'DISCONNECTED';
+                connectionStatus.className = 'status disconnected';
+                
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                subscribeBtn.disabled = true;
+                sendBtn.disabled = true;
+                pingBtn.disabled = true;
+                
+                addLogEntry('Disconnected from server', 'system');
+            }
+        }
+        
+        // Add an entry to the log
+        function addLogEntry(message, type = 'system', data = null) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            
+            const time = document.createElement('div');
+            time.className = 'log-time';
+            time.textContent = new Date().toLocaleTimeString();
+            
+            const msg = document.createElement('div');
+            msg.className = `log-message ${type}`;
+            msg.textContent = message;
+            
+            entry.appendChild(time);
+            entry.appendChild(msg);
+            
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            // Update message viewer if it's a received message
+            if (type === 'received' && data) {
+                messageContent.textContent = JSON.stringify(data, null, 2);
+            }
+        }
+        
+        // Update subscriptions list
+        function updateSubscriptions(subs) {
+            subscriptionsList.innerHTML = '';
+            
+            if (subs.length === 0) {
+                const emptyItem = document.createElement('div');
+                emptyItem.textContent = 'No active subscriptions';
+                subscriptionsList.appendChild(emptyItem);
+                return;
+            }
+            
+            subs.forEach(sub => {
+                const item = document.createElement('div');
+                item.className = 'subscription-item';
+                item.textContent = sub;
+                subscriptionsList.appendChild(item);
+            });
+        }
+        
+        // Event Listeners
+        connectBtn.addEventListener('click', () => {
+            const url = wsUrlInput.value.trim();
+            if (!url) {
+                addLogEntry('Please enter a WebSocket URL', 'error');
+                return;
+            }
+            
+            // Create a new tester with the specified URL
+            tester = new WebSocketTester(url);
+            
+            // Connect
+            if (tester.connect()) {
+                updateConnectionStatus(true);
+                
+                // Setup message handler
+                tester.websocket.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        addLogEntry(`Received: ${data.type || 'unknown type'}`, 'received', data);
+                        
+                        // Store in the log
+                        tester.messageLog.push({
+                            timestamp: new Date().toISOString(),
+                            type: 'received',
+                            data
+                        });
+                    } catch (error) {
+                        addLogEntry(`Error parsing message: ${error}`, 'error');
+                    }
+                };
+                
+                // Setup disconnect handler
+                tester.websocket.onclose = () => {
+                    updateConnectionStatus(false);
+                    updateSubscriptions([]);
+                };
+            } else {
+                addLogEntry('Failed to connect', 'error');
+            }
+        });
+        
+        disconnectBtn.addEventListener('click', () => {
+            if (tester.disconnect()) {
+                updateConnectionStatus(false);
+                updateSubscriptions([]);
+            }
+        });
+        
+        runTestBtn.addEventListener('click', async () => {
+            addLogEntry('Starting test sequence...', 'system');
+            
+            runTestBtn.disabled = true;
+            
+            try {
+                await tester.runTest();
+                addLogEntry('Test sequence completed', 'system');
+                updateConnectionStatus(tester.isConnected);
+                updateSubscriptions(Array.from(tester.subscriptions));
+            } catch (error) {
+                addLogEntry(`Test error: ${error.message}`, 'error');
+            }
+            
+            runTestBtn.disabled = false;
+        });
+        
+        clearLogBtn.addEventListener('click', () => {
+            logContainer.innerHTML = '';
+            tester.clearLog();
+            addLogEntry('Log cleared', 'system');
+        });
+        
+        subscribeBtn.addEventListener('click', () => {
+            const channel = channelInput.value.trim();
+            if (!channel) {
+                addLogEntry('Please enter a channel name', 'error');
+                return;
+            }
+            
+            if (tester.subscribe(channel)) {
+                addLogEntry(`Subscribed to channel: ${channel}`, 'system');
+                channelInput.value = '';
+                
+                // Update subscriptions list
+                updateSubscriptions(Array.from(tester.subscriptions));
+            }
+        });
+        
+        sendBtn.addEventListener('click', () => {
+            const message = messageInput.value.trim();
+            if (!message) {
+                addLogEntry('Please enter a message', 'error');
+                return;
+            }
+            
+            try {
+                // Try to parse as JSON
+                const jsonMessage = JSON.parse(message);
+                
+                if (tester.sendMessage(jsonMessage)) {
+                    addLogEntry(`Sent message: ${JSON.stringify(jsonMessage).substring(0, 30)}...`, 'sent');
+                    messageInput.value = '';
+                }
+            } catch (error) {
+                // If not valid JSON, send as string
+                if (tester.sendMessage(message)) {
+                    addLogEntry(`Sent message: ${message}`, 'sent');
+                    messageInput.value = '';
+                }
+            }
+        });
+        
+        pingBtn.addEventListener('click', () => {
+            if (tester.ping()) {
+                addLogEntry('Sent ping', 'sent');
+            }
+        });
+        
+        // Initial setup
+        updateConnectionStatus(false);
+        updateSubscriptions([]);
+        addLogEntry('WebSocket tester initialized', 'system');
+    </script>
+</body>
+</html>
