@@ -20,8 +20,6 @@
         }
         
         .container {
-            display: flex;
-            flex-direction: column;
             max-width: 1200px;
             margin: 0 auto;
         }
@@ -364,23 +362,8 @@
         </div>
     </div>
     
+    <script src="test-websocket.js"></script>
     <script>
-        // WebSocket connection
-        let socket = null;
-        let heartbeatInterval = null;
-        let heartbeatTime = null;
-        let latency = 0;
-        let lastPingTime = 0;
-        let subscribedChannelsList = [];
-        
-        // Message counters
-        let messagesSent = 0;
-        let messagesReceived = 0;
-        
-        // Connection timing
-        let connectionStartTime = null;
-        let lastMessageTime = null;
-        
         // DOM elements
         const connectBtn = document.getElementById('connectBtn');
         const disconnectBtn = document.getElementById('disconnectBtn');
@@ -395,6 +378,10 @@
         const startHeartbeatBtn = document.getElementById('startHeartbeatBtn');
         const stopHeartbeatBtn = document.getElementById('stopHeartbeatBtn');
         const subscribeBtn = document.getElementById('subscribeBtn');
+        
+        // Create WebSocket tester instance
+        let tester = new WebSocketTester(wsUrlInput.value);
+        let diagnostics = null;
         
         // Initialize the testing tool
         function init() {
@@ -416,93 +403,82 @@
             }
             
             updateConnectionStatus('disconnected');
+            
+            // Create diagnostics
+            diagnostics = new WebSocketDiagnostics(tester);
+            
+            // Set up WebSocket event handlers
+            setupEventHandlers();
+            
+            // Update diagnostics display
             updateDiagnostics();
+            setInterval(updateDiagnostics, 1000);
+        }
+        
+        // Set up WebSocket event handlers
+        function setupEventHandlers() {
+            tester.on('connect', (data) => {
+                appendToLog(sentLog, "Connection established", "success");
+                updateConnectionStatus('connected');
+            });
+            
+            tester.on('disconnect', (data) => {
+                appendToLog(sentLog, `Connection closed (code: ${data.code || 'unknown'})`, "info");
+                updateConnectionStatus('disconnected');
+            });
+            
+            tester.on('message', (data) => {
+                try {
+                    // Format JSON for better readability
+                    const formattedData = JSON.stringify(data.data, null, 2);
+                    appendToLog(receivedLog, formattedData, "received");
+                } catch (e) {
+                    // Handle non-JSON messages
+                    appendToLog(receivedLog, String(data.raw || data.data), "received");
+                }
+            });
+            
+            tester.on('error', (data) => {
+                appendToLog(sentLog, `WebSocket Error: ${data.message || 'Unknown error'}`, "error");
+            });
         }
         
         // Connect to WebSocket
         function connectWebSocket() {
-            if (socket) {
+            if (tester && tester.isConnected()) {
                 appendToLog(sentLog, "Already connected, disconnecting first...", "warning");
                 disconnectWebSocket();
             }
             
-            try {
-                let url = wsUrlInput.value;
-                appendToLog(sentLog, `Connecting to ${url}...`, "info");
-                updateConnectionStatus('connecting');
-                
-                socket = new WebSocket(url);
-                connectionStartTime = new Date();
-                
-                socket.onopen = function(event) {
-                    appendToLog(sentLog, "Connection established", "success");
-                    updateConnectionStatus('connected');
-                    updateDiagnostics();
-                };
-                
-                socket.onmessage = function(event) {
-                    messagesReceived++;
-                    lastMessageTime = new Date();
-                    
-                    try {
-                        const data = JSON.parse(event.data);
-                        
-                        // Check if this is a pong response
-                        if (data.type === "pong" && lastPingTime > 0) {
-                            latency = new Date().getTime() - lastPingTime;
-                            lastPingTime = 0;
-                            appendToLog(receivedLog, `PONG received (latency: ${latency}ms)`, "info");
-                        } else {
-                            // Format JSON for better readability
-                            const formattedData = JSON.stringify(data, null, 2);
-                            appendToLog(receivedLog, formattedData, "received");
-                        }
-                    } catch (e) {
-                        // Handle non-JSON messages
-                        appendToLog(receivedLog, event.data, "received");
-                    }
-                    
-                    updateDiagnostics();
-                };
-                
-                socket.onerror = function(error) {
-                    appendToLog(sentLog, "WebSocket Error", "error");
-                    console.error("WebSocket Error:", error);
-                    updateDiagnostics();
-                };
-                
-                socket.onclose = function(event) {
-                    const reason = event.reason ? `: ${event.reason}` : '';
-                    appendToLog(sentLog, `Connection closed (code: ${event.code}${reason})`, "info");
-                    updateConnectionStatus('disconnected');
-                    stopHeartbeat();
-                    socket = null;
-                    updateDiagnostics();
-                };
-            } catch (e) {
-                appendToLog(sentLog, `Connection error: ${e.message}`, "error");
+            // Create a new tester with the current URL
+            tester = new WebSocketTester(wsUrlInput.value);
+            diagnostics = new WebSocketDiagnostics(tester);
+            setupEventHandlers();
+            
+            appendToLog(sentLog, `Connecting to ${wsUrlInput.value}...`, "info");
+            updateConnectionStatus('connecting');
+            
+            const connected = tester.connect();
+            if (!connected) {
+                appendToLog(sentLog, "Failed to initiate connection", "error");
                 updateConnectionStatus('disconnected');
-                updateDiagnostics();
             }
         }
         
         // Disconnect WebSocket
         function disconnectWebSocket() {
-            if (socket) {
+            if (tester.isConnected()) {
                 appendToLog(sentLog, "Disconnecting...", "info");
-                socket.close();
-                stopHeartbeat();
-                updateConnectionStatus('disconnected');
+                tester.disconnect();
             } else {
                 appendToLog(sentLog, "Not connected", "info");
             }
-            updateDiagnostics();
         }
         
         // Update connection status display
         function updateConnectionStatus(status) {
             connectionStatus.className = `connection-status ${status}`;
-            const statusIndicator = connectionStatus.querySelector('.status-indicator');
+            const statusIndicator = document.createElement('span');
             statusIndicator.className = `status-indicator ${status}`;
             
             switch (status) {
@@ -519,52 +495,39 @@
                     connectionStatus.textContent = status.toUpperCase();
             }
             
-            connectionStatus.prepend(statusIndicator);
+            connectionStatus.innerHTML = '';
+            connectionStatus.appendChild(statusIndicator);
+            connectionStatus.appendChild(document.createTextNode(connectionStatus.textContent));
         }
         
         // Update diagnostics panel
         function updateDiagnostics() {
-            document.getElementById('msgSentCount').textContent = messagesSent;
-            document.getElementById('msgReceivedCount').textContent = messagesReceived;
+            if (!diagnostics) return;
             
-            let connState = "CLOSED";
-            if (socket) {
-                switch (socket.readyState) {
-                    case WebSocket.CONNECTING:
-                        connState = "CONNECTING";
-                        break;
-                    case WebSocket.OPEN:
-                        connState = "OPEN";
-                        break;
-                    case WebSocket.CLOSING:
-                        connState = "CLOSING";
-                        break;
-                    case WebSocket.CLOSED:
-                        connState = "CLOSED";
-                        break;
-                }
-            }
-            document.getElementById('connState').textContent = connState;
+            const diag = diagnostics.getDiagnostics();
             
-            document.getElementById('connectedTime').textContent = connectionStartTime ? formatTimestamp(connectionStartTime) : 'N/A';
-            document.getElementById('lastMsgTime').textContent = lastMessageTime ? formatTimestamp(lastMessageTime) : 'N/A';
+            document.getElementById('connState').textContent = diag.state || 'CLOSED';
+            document.getElementById('msgSentCount').textContent = diag.messagesSent || 0;
+            document.getElementById('msgReceivedCount').textContent = diag.messagesReceived || 0;
             
-            document.getElementById('heartbeatStatus').textContent = heartbeatInterval ? `Active (${heartbeatIntervalInput.value}ms)` : 'Inactive';
-            document.getElementById('latency').textContent = latency > 0 ? `${latency}ms` : 'N/A';
+            document.getElementById('connectedTime').textContent = 
+                diag.connectedTime ? formatTimestamp(diag.connectedTime) : 'N/A';
+            document.getElementById('lastMsgTime').textContent = 
+                diag.lastMessage ? formatTimestamp(diag.lastMessage) : 'N/A';
+            
+            document.getElementById('heartbeatStatus').textContent = 
+                tester.heartbeatInterval ? `Active (${heartbeatIntervalInput.value}ms)` : 'Inactive';
+            document.getElementById('latency').textContent = diag.latency > 0 ? `${diag.latency}ms` : 'N/A';
             
             document.getElementById('subscribedChannels').textContent = 
-                subscribedChannelsList.length > 0 ? subscribedChannelsList.join(', ') : 'None';
+                diag.subscriptions && diag.subscriptions.length > 0 ? diag.subscriptions.join(', ') : 'None';
         }
         
         // Start heartbeat
         function startHeartbeat() {
-            if (!socket || socket.readyState !== WebSocket.OPEN) {
+            if (!tester.isConnected()) {
                 appendToLog(sentLog, "Cannot start heartbeat: Not connected", "error");
                 return;
-            }
-            
-            if (heartbeatInterval) {
-                stopHeartbeat();
             }
             
             const interval = parseInt(heartbeatIntervalInput.value);
@@ -573,75 +536,36 @@
                 return;
             }
             
-            appendToLog(sentLog, `Starting heartbeat (${interval}ms interval)`, "info");
-            heartbeatInterval = setInterval(() => {
-                sendPing();
-            }, interval);
-            
+            tester.startHeartbeat(interval);
             startHeartbeatBtn.classList.add('active');
             stopHeartbeatBtn.classList.remove('active');
-            updateDiagnostics();
         }
         
         // Stop heartbeat
         function stopHeartbeat() {
-            if (heartbeatInterval) {
-                clearInterval(heartbeatInterval);
-                heartbeatInterval = null;
-                appendToLog(sentLog, "Stopped heartbeat", "info");
-                
-                startHeartbeatBtn.classList.remove('active');
-                stopHeartbeatBtn.classList.add('active');
-                updateDiagnostics();
-            }
-        }
-        
-        // Send ping message
-        function sendPing() {
-            if (socket && socket.readyState === WebSocket.OPEN) {
-                const pingMessage = { action: "ping" };
-                sendMessage(pingMessage);
-                lastPingTime = new Date().getTime();
-            } else {
-                appendToLog(sentLog, "Cannot send ping: Not connected", "error");
-                stopHeartbeat();
-            }
+            tester.stopHeartbeat();
+            startHeartbeatBtn.classList.remove('active');
+            stopHeartbeatBtn.classList.add('active');
         }
         
         // Send custom message
         function sendCustomMessage() {
-            if (!socket || socket.readyState !== WebSocket.OPEN) {
+            if (!tester.isConnected()) {
                 appendToLog(sentLog, "Cannot send message: Not connected", "error");
                 return;
             }
             
             try {
                 const message = JSON.parse(messageInput.value);
-                sendMessage(message);
+                tester.send(message);
             } catch (e) {
                 appendToLog(sentLog, `Invalid JSON: ${e.message}`, "error");
             }
         }
         
-        // Send WebSocket message
-        function sendMessage(message) {
-            if (socket && socket.readyState === WebSocket.OPEN) {
-                const messageStr = JSON.stringify(message);
-                socket.send(messageStr);
-                messagesSent++;
-                
-                // Format JSON for better readability in log
-                const formattedMessage = JSON.stringify(message, null, 2);
-                appendToLog(sentLog, formattedMessage, "sent");
-                updateDiagnostics();
-            } else {
-                appendToLog(sentLog, "Cannot send message: Not connected", "error");
-            }
-        }
-        
         // Subscribe to channels
         function subscribeToChannels() {
-            if (!socket || socket.readyState !== WebSocket.OPEN) {
+            if (!tester.isConnected()) {
                 appendToLog(sentLog, "Cannot subscribe: Not connected", "error");
                 return;
             }
@@ -654,14 +578,7 @@
                 return;
             }
             
-            subscribedChannelsList = channels;
-            
-            const subscribeMessage = {
-                action: "subscribe",
-                channels: channels
-            };
-            
-            sendMessage(subscribeMessage);
+            tester.subscribe(channels);
         }
         
         // Append message to log
@@ -681,6 +598,9 @@
             sentLog.innerHTML = '';
             receivedLog.innerHTML = '';
             appendToLog(sentLog, "Logs cleared", "info");
+            
+            // Clear message log in tester
+            tester.clearLog();
         }
         
         // Format timestamps for diagnostics

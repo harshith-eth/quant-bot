@@ -17,12 +17,16 @@ class WebSocketTester {
         this.latency = 0;
         this.messageQueue = [];
         this.autoReconnect = true;
+        this.messageLog = [];
+        this.subscriptions = new Set();
         
         // Event callbacks
         this.onConnectCallbacks = [];
         this.onDisconnectCallbacks = [];
         this.onMessageCallbacks = [];
         this.onErrorCallbacks = [];
+        
+        console.log(`🧪 WebSocket Tester initialized with URL: ${url}`);
     }
     
     // Connect to WebSocket
@@ -67,6 +71,13 @@ class WebSocketTester {
             const messageString = typeof message === 'string' ? message : JSON.stringify(message);
             this.socket.send(messageString);
             this._log(`Sent: ${messageString}`);
+            
+            this.messageLog.push({
+                timestamp: new Date().toISOString(),
+                type: 'sent',
+                data: message
+            });
+            
             return true;
         } else {
             // Queue message for sending when connected
@@ -78,17 +89,25 @@ class WebSocketTester {
     
     // Subscribe to specific channels
     subscribe(channels = []) {
-        if (!Array.isArray(channels) || channels.length === 0) {
+        const channelsArray = Array.isArray(channels) ? channels : [channels];
+        
+        if (channelsArray.length === 0) {
             this._triggerEvents('error', { message: 'No channels specified for subscription' });
             return false;
         }
         
         const subscriptionMessage = {
             action: 'subscribe',
-            channels: channels
+            channels: channelsArray
         };
         
-        return this.send(subscriptionMessage);
+        const result = this.send(subscriptionMessage);
+        if (result) {
+            channelsArray.forEach(channel => this.subscriptions.add(channel));
+            this._log(`Subscribed to channels: ${channelsArray.join(', ')}`);
+        }
+        
+        return result;
     }
     
     // Start sending heartbeat pings
@@ -114,7 +133,10 @@ class WebSocketTester {
     sendPing() {
         if (this.isConnected()) {
             this.lastPingTime = Date.now();
-            this.send({ action: 'ping' });
+            this.send({ 
+                action: 'ping',
+                timestamp: new Date().toISOString()
+            });
             return true;
         }
         return false;
@@ -185,7 +207,9 @@ class WebSocketTester {
             url: this.url,
             reconnectAttempts: this.reconnectAttempts,
             latency: this.latency,
-            messageQueueSize: this.messageQueue.length
+            messageQueueSize: this.messageQueue.length,
+            messageCount: this.messageLog.length,
+            subscriptions: Array.from(this.subscriptions)
         };
         
         if (this.socket) {
@@ -210,6 +234,19 @@ class WebSocketTester {
         }
         
         return status;
+    }
+    
+    // Clear message log
+    clearLog() {
+        const count = this.messageLog.length;
+        this.messageLog = [];
+        this._log(`Cleared ${count} messages from log`);
+        return count;
+    }
+    
+    // Get message log
+    getLog() {
+        return this.messageLog;
     }
     
     // Handle WebSocket open event
@@ -253,6 +290,13 @@ class WebSocketTester {
     _handleMessage(event) {
         try {
             const data = JSON.parse(event.data);
+            
+            // Add to message log
+            this.messageLog.push({
+                timestamp: new Date().toISOString(),
+                type: 'received',
+                data
+            });
             
             // Calculate latency if this is a response to a ping
             if (data.type === 'pong' && this.lastPingTime) {
@@ -323,6 +367,66 @@ class WebSocketTester {
     // Logging function
     _log(message) {
         console.log(`WebSocketTester: ${message}`);
+    }
+    
+    // Run automated test sequence
+    async runTest() {
+        console.log('🧪 Starting WebSocket test sequence');
+        
+        // Step 1: Connect
+        if (!this.connect()) {
+            console.error('❌ Test failed: Could not connect');
+            return false;
+        }
+        
+        // Wait for connection
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        if (!this.isConnected()) {
+            console.error('❌ Test failed: Connection timeout');
+            return false;
+        }
+        
+        console.log('✅ Connection test passed');
+        
+        // Step 2: Subscribe to channels
+        const testChannels = [
+            'portfolio_status',
+            'active_positions',
+            'market_analysis'
+        ];
+        
+        if (!this.subscribe(testChannels)) {
+            console.error('❌ Test failed: Could not subscribe to channels');
+            return false;
+        }
+        
+        console.log('✅ Subscription test passed');
+        
+        // Step 3: Send ping
+        if (!this.sendPing()) {
+            console.error('❌ Test failed: Could not send ping');
+            return false;
+        }
+        
+        console.log('✅ Ping test passed');
+        
+        // Wait for messages
+        console.log('⏳ Waiting for messages (5 seconds)...');
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        // Check if we received any messages
+        const receivedMessages = this.messageLog.filter(m => m.type === 'received').length;
+        if (receivedMessages === 0) {
+            console.warn('⚠️ No messages received during test period');
+        } else {
+            console.log(`✅ Received ${receivedMessages} messages`);
+        }
+        
+        // Final status
+        console.log('📊 Test completed. Final status:', this.getStatus());
+        
+        return true;
     }
 }
 
@@ -447,3 +551,32 @@ class WebSocketDiagnostics {
 // Create and export both classes
 window.WebSocketTester = WebSocketTester;
 window.WebSocketDiagnostics = WebSocketDiagnostics;
+
+// Create global instance for testing in console
+window.wsTest = new WebSocketTester();
+
+// Provide usage instructions
+console.log(`
+🧪 WebSocket Tester loaded!
+
+To test the WebSocket connection, run the following commands in the console:
+
+1. Start test sequence:
+   wsTest.runTest()
+
+2. Or test manually:
+   wsTest.connect()                     // Connect to WebSocket server
+   wsTest.subscribe(['channel_name'])   // Subscribe to channels
+   wsTest.sendPing()                    // Send a ping
+   wsTest.getStatus()                   // Check connection status
+   wsTest.getLog()                      // Get message log
+   
+3. Run diagnostics:
+   const wsStats = new WebSocketDiagnostics(wsTest);
+   wsStats.start()                      // Start diagnostics
+   wsStats.getDiagnostics()             // Get current diagnostics
+   wsStats.stop()                       // Stop diagnostics
+
+4. When done:
+   wsTest.disconnect()                  // Disconnect from server
+`);
