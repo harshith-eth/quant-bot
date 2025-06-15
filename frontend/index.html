@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="./styles.css">
+    <style>
+        .header-progress {
+            width: 100px;
+            height: 16px;
+            background: rgba(0, 255, 0, 0.05);
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+            margin-left: 0;
+            box-shadow: 0 0 2px rgba(0, 255, 0, 0.2);
+        }
+
+        .header-progress-fill {
+            height: 100%;
+            background: rgba(0, 255, 0, 0.2);
+            width: var(--progress, 11.6%);
+            transition: width 0.3s ease;
+            position: relative;
+            border-right: 1px solid #00ff00;
+        }
+
+        .header-progress-text {
+            display: none !important;
+        }
+
+        .goal-text {
+            font-family: 'Courier New', monospace;
+            font-size: 1.4vh;
+            font-weight: bold;
+            color: #00ff00;
+            text-transform: uppercase;
+        }
+
+        /* Bot Control Panel Styles */
+        .bot-control-panel {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-right: 20px;
+        }
+
+        .bot-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.4vh;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .bot-status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff0000;
+            animation: pulse-red 2s infinite;
+        }
+
+        .bot-status-indicator.running {
+            background: #00ff00;
+            animation: pulse-green 2s infinite;
+        }
+
+        .bot-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .bot-btn {
+            background: rgba(0, 50, 0, 0.4);
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 6px 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.2vh;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-radius: 0;
+        }
+
+        .bot-btn:hover {
+            background: rgba(0, 255, 0, 0.1);
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+
+        .bot-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: rgba(100, 100, 100, 0.2);
+            border-color: #666;
+            color: #666;
+        }
+
+        .bot-btn.stop {
+            border-color: #ff0000;
+            color: #ff0000;
+            background: rgba(50, 0, 0, 0.4);
+        }
+
+        .bot-btn.stop:hover {
+            background: rgba(255, 0, 0, 0.1);
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.3);
+        }
+
+        @keyframes pulse-red {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @keyframes pulse-green {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+    </style>
+</head>
+<body>
+    <div class="grid-container">
+        <div class="header">
+            <div class="header-section">
+                <div class="network-stat">
+                    <span class="status-indicator status-green"></span>
+                    <span class="stat-label">Network:</span> SOLANA
+                </div>
+                <div class="network-stat">
+                    <span class="stat-label">Gas:</span>
+                    <span id="gas-fees">0.000012 SOL</span>
+                </div>
+                <div class="network-stat">
+                    <span class="stat-label">24H Vol:</span>
+                    <span id="network-volume">$5.92B</span>
+                </div>
+                <div class="network-stat">
+                    <span class="stat-label">24H Txns:</span>
+                    <span id="network-txns">24,758,691</span>
+                </div>
+            </div>
+            
+            <!-- Bot Control Panel -->
+            <div class="bot-control-panel">
+                <div class="bot-status">
+                    <div class="bot-status-indicator" id="bot-status-indicator"></div>
+                    <span id="bot-status-text">BOT STOPPED</span>
+                </div>
+                <div class="bot-controls">
+                    <button id="start-bot-btn" class="bot-btn">START BOT</button>
+                    <button id="stop-bot-btn" class="bot-btn stop" disabled>STOP BOT</button>
+                </div>
+            </div>
+            
+            <div class="header-section">
+                <div class="network-stat">
+                    <span class="status-indicator status-green"></span>
+                    <span>SYSTEM ACTIVE</span>
+                </div>
+                <div class="network-stat">
+                    <span class="stat-label">Block:</span>
+                    <span id="latest-block">304,085,543</span>
+                    <span id="block-time">4s ago</span>
+                </div>
+                <div class="network-stat">
+                    <span id="current-time">12:35:41 PM</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-bar">
+            <div>Trades: <span id="trades-count">0</span>/5</div>
+            <div>Win Rate: <span id="win-rate">0</span>%</div>
+            <div>Avg. Profit: <span id="avg-profit">0</span>%</div>
+            <div>Drawdown: <span id="max-drawdown">0</span>%</div>
+            <div>Heat: <span id="heat-level">LOW</span></div>
+        </div>
+
+        <div id="portfolio-status" class="card"></div>
+        <div id="active-positions" class="card"></div>
+        <div id="meme-scanner" class="card"></div>
+        <div id="signal-feed" class="card"></div>
+        <div id="whale-activity" class="card"></div>
+        <div id="market-analysis" class="card"></div>
+        <div id="risk-management" class="card"></div>
+        <div id="ai-analysis" class="card"></div>
+    </div>
+
+    <script>
+        // Bot control functionality
+        let botRunning = false;
+
+        // Check bot status on page load
+        async function checkBotStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                updateBotStatus(data.running);
+            } catch (error) {
+                console.error('Error checking bot status:', error);
+            }
+        }
+
+        // Update UI based on bot status
+        function updateBotStatus(running) {
+            botRunning = running;
+            const indicator = document.getElementById('bot-status-indicator');
+            const statusText = document.getElementById('bot-status-text');
+            const startBtn = document.getElementById('start-bot-btn');
+            const stopBtn = document.getElementById('stop-bot-btn');
+
+            if (running) {
+                indicator.classList.add('running');
+                statusText.textContent = 'BOT RUNNING';
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+            } else {
+                indicator.classList.remove('running');
+                statusText.textContent = 'BOT STOPPED';
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            }
+        }
+
+        // Start bot
+        async function startBot() {
+            try {
+                const response = await fetch('/api/start', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    updateBotStatus(true);
+                    console.log('Bot started successfully');
+                } else {
+                    alert('Failed to start bot: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error starting bot:', error);
+                alert('Error starting bot');
+            }
+        }
+
+        // Stop bot
+        async function stopBot() {
+            try {
+                const response = await fetch('/api/stop', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    updateBotStatus(false);
+                    console.log('Bot stopped successfully');
+                } else {
+                    alert('Failed to stop bot: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error stopping bot:', error);
+                alert('Error stopping bot');
+            }
+        }
+
+        // Load HTML content into cards
+        async function loadCards() {
+            const cards = {
+                'portfolio-status': './card-portfolio-status.html',
+                'active-positions': './card-active-positions.html',
+                'meme-scanner': './card-meme-scanner.html',
+                'signal-feed': './card-signal-feed.html',
+                'whale-activity': './card-whale-activity.html',
+                'market-analysis': './card-market-analysis.html',
+                'risk-management': './card-risk-management.html',
+                'ai-analysis': './card-ai-analysis.html'
+            };
+
+            for (const [id, path] of Object.entries(cards)) {
+                try {
+                    const response = await fetch(path);
+                    const html = await response.text();
+                    document.getElementById(id).innerHTML = html;
+                } catch (error) {
+                    console.error(`Error loading ${path}:`, error);
+                }
+            }
+        }
+
+        // Initialize everything after cards are loaded
+        async function initialize() {
+            await loadCards();
+            
+            // Add bot control event listeners
+            document.getElementById('start-bot-btn').addEventListener('click', startBot);
+            document.getElementById('stop-bot-btn').addEventListener('click', stopBot);
+            
+            // Check initial bot status
+            await checkBotStatus();
+            
+            // Periodically check bot status
+            setInterval(checkBotStatus, 5000);
+            
+            const script = document.createElement('script');
+            script.src = './script.js';
+            document.body.appendChild(script);
+        }
+
+        // Start initialization when page loads
+        window.addEventListener('load', initialize);
+    </script>
+</body>
+</html>
