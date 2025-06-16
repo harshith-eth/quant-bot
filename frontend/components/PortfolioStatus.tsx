@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { LocalStorageCache, CACHE_KEYS, CACHE_DURATIONS } from "../utils/cache"
 
 interface PortfolioMetrics {
   totalBalance: number;
@@ -20,10 +21,22 @@ interface PortfolioMetrics {
 
 export default function PortfolioStatus() {
   const [portfolioData, setPortfolioData] = useState<PortfolioMetrics | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false) // Start with false, will be set based on cache
   const [error, setError] = useState<string | null>(null)
   const [targetBalance] = useState(20000.0)
   const [initialBalance, setInitialBalance] = useState<number | null>(null)
+
+  // Load cached data on component mount
+  useEffect(() => {
+    const cachedData = LocalStorageCache.get<PortfolioMetrics>(CACHE_KEYS.PORTFOLIO_DATA);
+    
+    if (cachedData) {
+      setPortfolioData(cachedData);
+      setLoading(false);
+    } else {
+      setLoading(true); // Only show loading if no cache
+    }
+  }, []);
 
   const resetInitialBalance = async () => {
     if (portfolioData?.totalBalance) {
@@ -53,6 +66,9 @@ export default function PortfolioStatus() {
           const data = await response.json();
           setPortfolioData(data);
           setError(null);
+          
+          // Cache the successful response
+          LocalStorageCache.set(CACHE_KEYS.PORTFOLIO_DATA, data, CACHE_DURATIONS.PORTFOLIO);
         } else if (response.status === 503) {
           setError('Portfolio service not available. Please check wallet configuration.');
         } else {
@@ -80,7 +96,10 @@ export default function PortfolioStatus() {
       }
     };
 
-    fetchPortfolioData();
+    // Only fetch if we don't have cached data or if loading is true
+    if (loading || !portfolioData) {
+      fetchPortfolioData();
+    }
     fetchInitialBalance();
     
     // Refresh every 2 minutes to save on Helius API costs
@@ -98,7 +117,7 @@ export default function PortfolioStatus() {
       clearInterval(interval);
       clearInterval(balanceInterval);
     };
-  }, [])
+  }, [loading, portfolioData])
 
   if (loading) {
     return (

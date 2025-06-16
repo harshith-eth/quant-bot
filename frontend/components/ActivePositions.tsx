@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { LocalStorageCache, CACHE_KEYS, CACHE_DURATIONS } from "../utils/cache"
 
 interface Position {
   id: string
@@ -29,10 +30,24 @@ interface DisplayPosition {
   actionType: "tp-ready" | "monitoring"
 }
 
+
+
 export default function ActivePositions() {
   const [positions, setPositions] = useState<Position[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false) // Start with false, will be set based on cache
   const [error, setError] = useState<string | null>(null)
+
+  // Load cached data on component mount
+  useEffect(() => {
+    const cachedData = LocalStorageCache.get<Position[]>(CACHE_KEYS.POSITIONS_DATA);
+    
+    if (cachedData) {
+      setPositions(cachedData);
+      setLoading(false);
+    } else {
+      setLoading(true); // Only show loading if no cache
+    }
+  }, []);
 
   useEffect(() => {
     const fetchPositions = async () => {
@@ -42,6 +57,9 @@ export default function ActivePositions() {
           const data = await response.json();
           setPositions(data);
           setError(null);
+          
+          // Cache the successful response
+          LocalStorageCache.set(CACHE_KEYS.POSITIONS_DATA, data, CACHE_DURATIONS.POSITIONS);
         } else if (response.status === 503) {
           setError('Portfolio service not available. Please check wallet configuration.');
         } else {
@@ -55,13 +73,16 @@ export default function ActivePositions() {
       }
     };
 
-    fetchPositions();
+    // Only fetch if we don't have cached data or if loading is true
+    if (loading || positions.length === 0) {
+      fetchPositions();
+    }
     
     // Refresh every 2 minutes to save on API costs
     const interval = setInterval(fetchPositions, 120000);
     
     return () => clearInterval(interval);
-  }, [])
+  }, [loading, positions.length])
 
   // Convert backend positions to display format
   const displayPositions: DisplayPosition[] = positions.map(position => {
