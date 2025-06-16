@@ -83,13 +83,21 @@ export default function PortfolioStatus() {
     fetchPortfolioData();
     fetchInitialBalance();
     
-    // Refresh every 10 seconds
+    // Refresh every 2 minutes to save on Helius API costs
     const interval = setInterval(() => {
       fetchPortfolioData();
-      fetchInitialBalance();
-    }, 10000);
+      // Only fetch initial balance every 10 minutes (it rarely changes)
+    }, 120000);
     
-    return () => clearInterval(interval);
+    // Separate interval for initial balance (less frequent)
+    const balanceInterval = setInterval(() => {
+      fetchInitialBalance();
+    }, 600000); // 10 minutes
+    
+    return () => {
+      clearInterval(interval);
+      clearInterval(balanceInterval);
+    };
   }, [])
 
   if (loading) {

@@ -37,6 +37,12 @@ export class PortfolioService {
   private db: Database;
   private connection: Connection;
   private walletPubkey: PublicKey;
+  private metricsCache: { data: PortfolioMetrics | null; timestamp: number } = { data: null, timestamp: 0 };
+  private priceCache: { data: Record<string, number>; timestamp: number } = { data: {}, timestamp: 0 };
+  private balanceCache: { solBalance: number; tokenBalances: any[]; timestamp: number } = { solBalance: 0, tokenBalances: [], timestamp: 0 };
+  private readonly CACHE_DURATION = 120000; // 2 minutes cache to save on Helius API calls
+  private readonly PRICE_CACHE_DURATION = 300000; // 5 minutes for prices (they don't change that fast)
+  private readonly BALANCE_CACHE_DURATION = 60000; // 1 minute for balances
 
   constructor(connection: Connection, walletPubkey: PublicKey) {
     this.connection = connection;
@@ -110,19 +116,37 @@ export class PortfolioService {
     });
   }
 
-  // Get real-time wallet balance
+  // Get wallet balance with caching to save on Helius API calls
   async getWalletBalance(): Promise<number> {
+    // Check cache first
+    const now = Date.now();
+    if (this.balanceCache.solBalance > 0 && (now - this.balanceCache.timestamp) < this.BALANCE_CACHE_DURATION) {
+      return this.balanceCache.solBalance;
+    }
+
     try {
       const balance = await this.connection.getBalance(this.walletPubkey);
-      return balance / 1e9; // Convert lamports to SOL
+      const solBalance = balance / 1e9; // Convert lamports to SOL
+      
+      // Update cache
+      this.balanceCache.solBalance = solBalance;
+      this.balanceCache.timestamp = now;
+      
+      return solBalance;
     } catch (error) {
       logger.error('Error fetching wallet balance:', error);
-      return 0;
+      return this.balanceCache.solBalance || 0; // Return cached value if available
     }
   }
 
-  // Get token balances for all tokens in wallet
+  // Get token balances with caching to save on expensive Helius API calls
   async getTokenBalances(): Promise<any[]> {
+    // Check cache first
+    const now = Date.now();
+    if (this.balanceCache.tokenBalances.length > 0 && (now - this.balanceCache.timestamp) < this.BALANCE_CACHE_DURATION) {
+      return this.balanceCache.tokenBalances;
+    }
+
     try {
       const tokenAccounts = await this.connection.getProgramAccounts(TOKEN_PROGRAM_ID, {
         filters: [
@@ -157,19 +181,42 @@ export class PortfolioService {
         }
       }
 
+      // Update cache
+      this.balanceCache.tokenBalances = balances;
+      this.balanceCache.timestamp = now;
+      
       return balances;
     } catch (error) {
       logger.error('Error fetching token balances:', error);
-      return [];
+      return this.balanceCache.tokenBalances || []; // Return cached value if available
     }
   }
 
-  // Get token prices from Jupiter
+  // Get token prices from Jupiter with caching to save on API calls
   async getTokenPrices(mints: string[]): Promise<Record<string, number>> {
+    if (mints.length === 0) return {};
+    
+    // Check cache first
+    const now = Date.now();
+    const cacheKey = mints.sort().join(',');
+    if (this.priceCache.data && (now - this.priceCache.timestamp) < this.PRICE_CACHE_DURATION) {
+      // Return cached prices for requested mints
+      const cachedPrices: Record<string, number> = {};
+      for (const mint of mints) {
+        if (this.priceCache.data[mint] !== undefined) {
+          cachedPrices[mint] = this.priceCache.data[mint];
+        }
+      }
+      if (Object.keys(cachedPrices).length === mints.length) {
+        return cachedPrices;
+      }
+    }
+
     try {
-      if (mints.length === 0) return {};
       
-      const response = await axios.get(`https://api.jup.ag/price/v2?ids=${mints.join(',')}`);
+      const response = await axios.get(`https://api.jup.ag/price/v2?ids=${mints.join(',')}`, {
+        timeout: 10000 // 10 second timeout
+      });
       const prices: Record<string, number> = {};
       
       if (response.data && response.data.data) {
@@ -190,6 +237,10 @@ export class PortfolioService {
           prices[mint] = price;
         }
       }
+      
+      // Update cache
+      this.priceCache.data = { ...this.priceCache.data, ...prices };
+      this.priceCache.timestamp = now;
       
       return prices;
     } catch (error) {
@@ -243,6 +294,13 @@ export class PortfolioService {
 
   // Calculate comprehensive portfolio metrics with real data
   async getPortfolioMetrics(): Promise<PortfolioMetrics> {
+    // Check cache first
+    const now = Date.now();
+    if (this.metricsCache.data && (now - this.metricsCache.timestamp) < this.CACHE_DURATION) {
+      logger.info('Returning cached portfolio metrics');
+      return this.metricsCache.data;
+    }
+
     try {
       logger.info('Starting portfolio metrics calculation...');
       const solBalance = await this.getWalletBalance();
@@ -313,7 +371,7 @@ export class PortfolioService {
       totalGainPercent = (totalGain / initialBalance) * 100;
     }
     
-    return {
+    const metrics = {
       totalBalance: totalPortfolioValue, // Total value in USD (SOL + tokens)
       availableBalance: solValueUSD, // SOL balance in USD (available for trading)
       inTrades: totalTokenValue, // Token holdings in USD (considered "in trades")
@@ -328,6 +386,10 @@ export class PortfolioService {
       solBalance: solBalance, // SOL balance in SOL
       solPrice: solPrice // Current SOL price in USD
     };
+
+    // Cache the result
+    this.metricsCache = { data: metrics, timestamp: Date.now() };
+    return metrics;
     } catch (error) {
       logger.error('Error calculating portfolio metrics:', error);
       if (error instanceof Error) {
@@ -363,7 +425,9 @@ export class PortfolioService {
   // Get SOL price from Jupiter
   private async getSolPrice(): Promise<number> {
     try {
-      const response = await axios.get('https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112');
+      const response = await axios.get('https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112', {
+        timeout: 10000 // 10 second timeout
+      });
       if (response.data && response.data.data && response.data.data['So11111111111111111111111111111111111111112']) {
         return response.data.data['So11111111111111111111111111111111111111112'].price;
       }
