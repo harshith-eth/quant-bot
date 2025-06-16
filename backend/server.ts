@@ -1,6 +1,8 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import { Connection, Commitment } from '@solana/web3.js';
+import { Connection, Commitment, Keypair } from '@solana/web3.js';
+import { PortfolioService } from './portfolio-service';
+import bs58 from 'bs58';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -14,6 +16,18 @@ const COMMITMENT_LEVEL: Commitment = process.env.COMMITMENT_LEVEL as Commitment 
 
 // Create Solana connection for network stats
 const connection = new Connection(RPC_ENDPOINT, COMMITMENT_LEVEL);
+
+// Initialize portfolio service if private key is available
+let portfolioService: PortfolioService | null = null;
+if (process.env.PRIVATE_KEY) {
+  try {
+    const wallet = Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY));
+    portfolioService = new PortfolioService(connection, wallet.publicKey);
+    console.log(`💼 Portfolio Service initialized for wallet: ${wallet.publicKey.toString().slice(0, 8)}...`);
+  } catch (error) {
+    console.warn('⚠️  Failed to initialize portfolio service:', error);
+  }
+}
 
 console.log(`🔗 Using RPC: ${RPC_ENDPOINT}`);
 console.log(`🎯 Commitment Level: ${COMMITMENT_LEVEL}`);
@@ -173,6 +187,153 @@ app.post('/api/stop', (req: Request, res: Response) => {
     res.status(500).json({ 
       success: false, 
       message: 'Failed to stop bot' 
+    });
+  }
+});
+
+// API endpoint to get portfolio metrics
+app.get('/api/portfolio', async (req: Request, res: Response) => {
+  if (!portfolioService) {
+    return res.status(503).json({ 
+      error: 'Portfolio service not available. Please check wallet configuration.' 
+    });
+  }
+
+  try {
+    const metrics = await portfolioService.getPortfolioMetrics();
+    res.json(metrics);
+  } catch (error) {
+    console.error('Failed to get portfolio metrics:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch portfolio data' 
+    });
+  }
+});
+
+// API endpoint to get active positions
+app.get('/api/positions', async (req: Request, res: Response) => {
+  if (!portfolioService) {
+    return res.status(503).json({ 
+      error: 'Portfolio service not available. Please check wallet configuration.' 
+    });
+  }
+
+  try {
+    const positions = await portfolioService.getOpenPositions();
+    res.json(positions);
+  } catch (error) {
+    console.error('Failed to get positions:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch positions data' 
+    });
+  }
+});
+
+// API endpoint to set initial balance
+app.post('/api/initial-balance', async (req: Request, res: Response) => {
+  if (!portfolioService) {
+    return res.status(503).json({ 
+      error: 'Portfolio service not available. Please check wallet configuration.' 
+    });
+  }
+
+  try {
+    const { balance } = req.body;
+    if (typeof balance !== 'number' || balance < 0) {
+      return res.status(400).json({ error: 'Invalid balance value' });
+    }
+
+    await portfolioService.setInitialBalance(balance);
+    res.json({ success: true, message: 'Initial balance set successfully' });
+  } catch (error) {
+    console.error('Failed to set initial balance:', error);
+    res.status(500).json({ 
+      error: 'Failed to set initial balance' 
+    });
+  }
+});
+
+// API endpoint to get initial balance
+app.get('/api/initial-balance', async (req: Request, res: Response) => {
+  if (!portfolioService) {
+    return res.status(503).json({ 
+      error: 'Portfolio service not available. Please check wallet configuration.' 
+    });
+  }
+
+  try {
+    const initialBalance = await portfolioService.getInitialBalance();
+    res.json({ initialBalance });
+  } catch (error) {
+    console.error('Failed to get initial balance:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch initial balance' 
+    });
+  }
+});
+
+// API endpoint to get trade history
+app.get('/api/trades', async (req: Request, res: Response) => {
+  if (!portfolioService) {
+    return res.status(503).json({ 
+      error: 'Portfolio service not available. Please check wallet configuration.' 
+    });
+  }
+
+  try {
+    const limit = parseInt(req.query.limit as string) || 50;
+    const trades = await portfolioService.getTradeHistory(limit);
+    res.json(trades);
+  } catch (error) {
+    console.error('Failed to get trade history:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch trade history' 
+    });
+  }
+});
+
+// API endpoint to get detailed wallet information (for debugging)
+app.get('/api/wallet-details', async (req: Request, res: Response) => {
+  if (!portfolioService) {
+    return res.status(503).json({ 
+      error: 'Portfolio service not available. Please check wallet configuration.' 
+    });
+  }
+
+  try {
+    const details = await portfolioService.getWalletDetails();
+    res.json(details);
+  } catch (error) {
+    console.error('Failed to get wallet details:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch wallet details' 
+    });
+  }
+});
+
+// API endpoint to record a trade (for bot integration)
+app.post('/api/trade', async (req: Request, res: Response) => {
+  if (!portfolioService) {
+    return res.status(503).json({ 
+      error: 'Portfolio service not available. Please check wallet configuration.' 
+    });
+  }
+
+  try {
+    const { mint, symbol, type, amount, price, signature } = req.body;
+    
+    if (!mint || !symbol || !type || !amount || !price || !signature) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: mint, symbol, type, amount, price, signature' 
+      });
+    }
+
+    await portfolioService.recordTrade(mint, symbol, type, amount, price, signature);
+    res.json({ success: true, message: 'Trade recorded successfully' });
+  } catch (error) {
+    console.error('Failed to record trade:', error);
+    res.status(500).json({ 
+      error: 'Failed to record trade' 
     });
   }
 });
