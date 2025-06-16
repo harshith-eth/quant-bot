@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { Connection, Commitment, Keypair } from '@solana/web3.js';
 import { PortfolioService } from './portfolio-service';
+import { MemeScannerService } from './meme-scanner';
 import bs58 from 'bs58';
 import dotenv from 'dotenv';
 
@@ -27,6 +28,15 @@ if (process.env.PRIVATE_KEY) {
   } catch (error) {
     console.warn('⚠️  Failed to initialize portfolio service:', error);
   }
+}
+
+// Initialize MEME SCANNER service
+let memeScannerService: MemeScannerService | null = null;
+try {
+  memeScannerService = new MemeScannerService(connection);
+  console.log('🔍 MEME SCANNER Service initialized');
+} catch (error) {
+  console.warn('⚠️  Failed to initialize MEME SCANNER service:', error);
 }
 
 console.log(`🔗 Using RPC: ${RPC_ENDPOINT}`);
@@ -338,6 +348,100 @@ app.post('/api/trade', async (req: Request, res: Response) => {
   }
 });
 
+// MEME SCANNER API ENDPOINTS
+// =========================
+
+// API endpoint to get MEME SCANNER stats
+app.get('/api/meme-scanner/stats', (req: Request, res: Response) => {
+  if (!memeScannerService) {
+    return res.status(503).json({ 
+      error: 'MEME SCANNER service not available.' 
+    });
+  }
+
+  try {
+    const stats = memeScannerService.getStats();
+    const connectionStatus = {
+      isConnected: memeScannerService.isWebSocketConnected(),
+      tokenCount: memeScannerService.getTokenCount(),
+    };
+    
+    res.json({
+      ...stats,
+      connection: connectionStatus
+    });
+  } catch (error) {
+    console.error('Failed to get MEME SCANNER stats:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch MEME SCANNER stats' 
+    });
+  }
+});
+
+// API endpoint to get filtered tokens (all tokens that pass criteria)
+app.get('/api/meme-scanner/tokens', (req: Request, res: Response) => {
+  if (!memeScannerService) {
+    return res.status(503).json({ 
+      error: 'MEME SCANNER service not available.' 
+    });
+  }
+
+  try {
+    const tokens = memeScannerService.getFilteredTokens();
+    res.json(tokens);
+  } catch (error) {
+    console.error('Failed to get filtered tokens:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch filtered tokens' 
+    });
+  }
+});
+
+// API endpoint to get best opportunities (high-scoring tokens)
+app.get('/api/meme-scanner/opportunities', (req: Request, res: Response) => {
+  if (!memeScannerService) {
+    return res.status(503).json({ 
+      error: 'MEME SCANNER service not available.' 
+    });
+  }
+
+  try {
+    const opportunities = memeScannerService.getBestOpportunities();
+    res.json(opportunities);
+  } catch (error) {
+    console.error('Failed to get best opportunities:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch best opportunities' 
+    });
+  }
+});
+
+// API endpoint to get MEME SCANNER status
+app.get('/api/meme-scanner/status', (req: Request, res: Response) => {
+  if (!memeScannerService) {
+    return res.status(503).json({ 
+      error: 'MEME SCANNER service not available.',
+      isConnected: false,
+      tokenCount: 0
+    });
+  }
+
+  try {
+    res.json({
+      isConnected: memeScannerService.isWebSocketConnected(),
+      tokenCount: memeScannerService.getTokenCount(),
+      service: 'active'
+    });
+  } catch (error) {
+    console.error('Failed to get MEME SCANNER status:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch MEME SCANNER status',
+      isConnected: false,
+      tokenCount: 0
+    });
+  }
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log('\n🚀 SOLANA TRADING BOT BACKEND API');
@@ -358,6 +462,10 @@ process.on('SIGINT', () => {
     console.log('⏹️  Stopping trading bot...');
     botRunning = false;
     botProcess = null;
+  }
+  if (memeScannerService) {
+    console.log('🔍 Stopping MEME SCANNER service...');
+    memeScannerService.destroy();
   }
   process.exit(0);
 });
