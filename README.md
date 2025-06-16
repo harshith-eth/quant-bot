@@ -171,56 +171,695 @@ QuantBot v3.0/ (Enterprise Trading Platform)
 | **Styling** | Tailwind CSS, Shadcn/ui | Modern, responsive design |
 | **Monitoring** | Winston, Custom analytics | Logging & performance tracking |
 
-## 🏗️ Architecture
+## 🏗️ System Architecture
+
+### 🎯 High-Level System Overview
+
+```mermaid
+graph TB
+    subgraph "🌐 Frontend Layer"
+        UI[📱 Next.js Dashboard]
+        WS[🔄 WebSocket Client]
+        API_CLIENT[📡 API Client]
+    end
+    
+    subgraph "⚡ Backend Layer"
+        SERVER[🖥️ Express Server]
+        BOT[🤖 Trading Bot Engine]
+        CACHE[💾 Redis Cache]
+        DB[🗄️ SQLite Database]
+    end
+    
+    subgraph "🧠 AI Swarm Layer"
+        WHALE[🐋 Whale Agent]
+        SCANNER[🔍 Meme Scanner]
+        RISK[🛡️ Risk Manager]
+        PORTFOLIO[📊 Portfolio Agent]
+        FILTER[🚫 Filter Agent]
+        LIQUIDITY[💧 Liquidity Agent]
+    end
+    
+    subgraph "🌊 Blockchain Layer"
+        SOLANA[⚡ Solana RPC]
+        HELIUS[🔗 Helius API]
+        JUPITER[🪐 Jupiter DEX]
+        RAYDIUM[🌊 Raydium DEX]
+    end
+    
+    subgraph "📊 External APIs"
+        AZURE[🧠 Azure OpenAI]
+        SOCIAL[📱 Social APIs]
+        PRICE[💰 Price Feeds]
+    end
+    
+    UI --> SERVER
+    WS --> SERVER
+    API_CLIENT --> SERVER
+    
+    SERVER --> BOT
+    SERVER --> CACHE
+    SERVER --> DB
+    
+    BOT --> WHALE
+    BOT --> SCANNER
+    BOT --> RISK
+    BOT --> PORTFOLIO
+    BOT --> FILTER
+    BOT --> LIQUIDITY
+    
+    WHALE --> SOLANA
+    SCANNER --> HELIUS
+    BOT --> JUPITER
+    BOT --> RAYDIUM
+    
+    SCANNER --> AZURE
+    WHALE --> SOCIAL
+    PORTFOLIO --> PRICE
+    
+    style UI fill:#4ecdc4
+    style BOT fill:#ff6b6b
+    style WHALE fill:#45b7d1
+    style SCANNER fill:#96ceb4
+    style RISK fill:#feca57
+```
+
+### 🔄 Trading Flow Architecture
 
 ```mermaid
 graph TD
-    A["🚀 npm run dev"] --> B["Frontend + Backend Start"]
-    B --> C["📊 Next.js Dashboard<br/>localhost:3000"]
-    B --> D["🔧 Express API Server<br/>localhost:3001"]
-    C --> E["User Interface"]
-    D --> F["Trading Bot API"]
+    A["🚀 System Start"] --> B["🔧 Initialize Components"]
+    B --> C["📡 Connect to RPC"]
+    C --> D["💰 Load Wallet"]
+    D --> E["🎯 Start Market Monitoring"]
     
-    D --> E["Start Bot"]
-    D --> F["Monitor Status"]
-    D --> G["View Logs"]
+    E --> F["🔍 Token Detection"]
+    F --> G{"🆕 New Token?"}
+    G -->|No| F
+    G -->|Yes| H["📊 Gather Token Data"]
     
-    E --> H["Bot Initialization"]
-    H --> I["Load Configuration<br/>(.env file)"]
-    I --> J["Connect to Solana RPC"]
-    J --> K["Initialize Wallet"]
+    H --> I["🛡️ Security Filters"]
+    I --> J{"✅ Safe Token?"}
+    J -->|No| K["❌ Reject Token"]
+    J -->|Yes| L["💧 Liquidity Analysis"]
     
-    K --> L["Market Monitoring"]
-    L --> M{"New Pool<br/>Detected?"}
-    M -->|Yes| N["Apply Filters"]
-    M -->|No| L
+    L --> M{"💰 Sufficient Liquidity?"}
+    M -->|No| K
+    M -->|Yes| N["🧠 AI Analysis"]
     
-    N --> O{"Filters<br/>Passed?"}
-    O -->|No| L
-    O -->|Yes| P["Execute Buy Order"]
+    N --> O["📈 Generate Signal"]
+    O --> P{"🎯 Buy Signal?"}
+    P -->|No| K
+    P -->|Yes| Q["💸 Calculate Position Size"]
     
-    P --> Q["Position Management"]
-    Q --> R{"Auto Sell<br/>Enabled?"}
-    R -->|No| S["Manual Sell"]
-    R -->|Yes| T["Monitor Price"]
+    Q --> R["⚡ Execute Buy Order"]
+    R --> S{"✅ Order Filled?"}
+    S -->|No| T["🔄 Retry Logic"]
+    S -->|Yes| U["📊 Track Position"]
     
-    T --> U{"Take Profit<br/>or Stop Loss<br/>Triggered?"}
-    U -->|No| T
-    U -->|Yes| V["Execute Sell Order"]
+    T --> V{"🔄 Max Retries?"}
+    V -->|Yes| K
+    V -->|No| R
     
-    S --> W["Position Closed"]
-    V --> W
-    W --> L
+    U --> W["📈 Monitor Price"]
+    W --> X{"💰 Take Profit or 🛑 Stop Loss?"}
+    X -->|No| W
+    X -->|Yes| Y["💸 Execute Sell Order"]
     
-    X["Real-time Updates"] --> D
-    Q --> X
-    L --> X
+    Y --> Z["📊 Update Portfolio"]
+    Z --> AA["📝 Log Trade"]
+    AA --> F
+    
+    K --> F
     
     style A fill:#ff6b6b
-    style C fill:#4ecdc4
-    style P fill:#45b7d1
-    style V fill:#96ceb4
-    style W fill:#feca57
+    style R fill:#45b7d1
+    style Y fill:#96ceb4
+    style K fill:#feca57
+    style U fill:#4ecdc4
+```
+
+### 🧠 AI Swarm Communication
+
+```mermaid
+graph LR
+    subgraph "🎯 Signal Generation"
+        WHALE[🐋 Whale Agent<br/>Large Tx Monitor]
+        SCANNER[🔍 Meme Scanner<br/>Token Discovery]
+        SOCIAL[📱 Social Agent<br/>Sentiment Analysis]
+    end
+    
+    subgraph "🛡️ Risk Assessment"
+        FILTER[🚫 Filter Agent<br/>Safety Checks]
+        RISK[🛡️ Risk Manager<br/>Position Sizing]
+        LIQUIDITY[💧 Liquidity Agent<br/>Market Depth]
+    end
+    
+    subgraph "⚡ Execution Layer"
+        TRADING[🤖 Trading Agent<br/>Order Execution]
+        PORTFOLIO[📊 Portfolio Agent<br/>Position Tracking]
+        TRANSACTION[💸 Transaction Agent<br/>Blockchain Ops]
+    end
+    
+    subgraph "🧠 Intelligence Hub"
+        AI[🤖 Azure OpenAI<br/>Signal Processing]
+        CACHE[💾 Cache System<br/>Data Storage]
+        COORDINATOR[🎯 Agent Coordinator<br/>Orchestration]
+    end
+    
+    WHALE --> AI
+    SCANNER --> AI
+    SOCIAL --> AI
+    
+    AI --> FILTER
+    AI --> RISK
+    AI --> LIQUIDITY
+    
+    FILTER --> TRADING
+    RISK --> TRADING
+    LIQUIDITY --> TRADING
+    
+    TRADING --> PORTFOLIO
+    TRADING --> TRANSACTION
+    
+    COORDINATOR --> WHALE
+    COORDINATOR --> SCANNER
+    COORDINATOR --> SOCIAL
+    COORDINATOR --> FILTER
+    COORDINATOR --> RISK
+    COORDINATOR --> LIQUIDITY
+    COORDINATOR --> TRADING
+    COORDINATOR --> PORTFOLIO
+    
+    CACHE --> WHALE
+    CACHE --> SCANNER
+    CACHE --> PORTFOLIO
+    
+    style AI fill:#ff6b6b
+    style COORDINATOR fill:#4ecdc4
+    style TRADING fill:#45b7d1
+    style RISK fill:#feca57
+```
+
+### 📊 Data Flow Architecture
+
+```mermaid
+flowchart TD
+    subgraph "📡 Data Sources"
+        RPC[⚡ Solana RPC<br/>Real-time Blockchain]
+        HELIUS[🔗 Helius API<br/>Enhanced Data]
+        DEX[🌊 DEX APIs<br/>Trading Data]
+        SOCIAL_API[📱 Social APIs<br/>Sentiment Data]
+    end
+    
+    subgraph "🔄 Data Processing"
+        COLLECTOR[📥 Data Collector<br/>Aggregation Layer]
+        PARSER[🔧 Data Parser<br/>Normalization]
+        VALIDATOR[✅ Data Validator<br/>Quality Checks]
+        ENRICHER[➕ Data Enricher<br/>Context Addition]
+    end
+    
+    subgraph "🧠 Intelligence Layer"
+        ML[🤖 ML Models<br/>Pattern Recognition]
+        SENTIMENT[😊 Sentiment Analysis<br/>Social Signals]
+        TECHNICAL[📈 Technical Analysis<br/>Price Patterns]
+        FUNDAMENTAL[📊 Fundamental Analysis<br/>Token Metrics]
+    end
+    
+    subgraph "💾 Storage Layer"
+        CACHE_HOT[🔥 Hot Cache<br/>Redis - Real-time]
+        CACHE_WARM[🌡️ Warm Cache<br/>Recent Data]
+        DB_COLD[❄️ Cold Storage<br/>Historical Data]
+        BACKUP[💿 Backup Storage<br/>Archive]
+    end
+    
+    subgraph "📊 Output Layer"
+        SIGNALS[🎯 Trading Signals<br/>Buy/Sell Alerts]
+        DASHBOARD[📱 Dashboard<br/>Real-time UI]
+        ALERTS[🚨 Alert System<br/>Notifications]
+        REPORTS[📋 Reports<br/>Analytics]
+    end
+    
+    RPC --> COLLECTOR
+    HELIUS --> COLLECTOR
+    DEX --> COLLECTOR
+    SOCIAL_API --> COLLECTOR
+    
+    COLLECTOR --> PARSER
+    PARSER --> VALIDATOR
+    VALIDATOR --> ENRICHER
+    
+    ENRICHER --> ML
+    ENRICHER --> SENTIMENT
+    ENRICHER --> TECHNICAL
+    ENRICHER --> FUNDAMENTAL
+    
+    ML --> CACHE_HOT
+    SENTIMENT --> CACHE_HOT
+    TECHNICAL --> CACHE_WARM
+    FUNDAMENTAL --> CACHE_WARM
+    
+    CACHE_HOT --> SIGNALS
+    CACHE_HOT --> DASHBOARD
+    CACHE_WARM --> ALERTS
+    CACHE_WARM --> REPORTS
+    
+    CACHE_HOT --> DB_COLD
+    DB_COLD --> BACKUP
+    
+    style COLLECTOR fill:#ff6b6b
+    style ML fill:#4ecdc4
+    style SIGNALS fill:#45b7d1
+    style CACHE_HOT fill:#96ceb4
+```
+
+### 🛡️ Security & Risk Management Flow
+
+```mermaid
+graph TB
+    subgraph "🔍 Token Discovery"
+        NEW_TOKEN[🆕 New Token Detected]
+        METADATA[📋 Fetch Metadata]
+        BASIC_INFO[ℹ️ Basic Token Info]
+    end
+    
+    subgraph "🛡️ Security Validation"
+        MINT_CHECK[🔐 Mint Authority Check]
+        FREEZE_CHECK[❄️ Freeze Authority Check]
+        OWNERSHIP[👤 Ownership Analysis]
+        CONTRACT_SCAN[🔍 Contract Security Scan]
+    end
+    
+    subgraph "💰 Financial Validation"
+        LIQUIDITY_CHECK[💧 Liquidity Validation]
+        VOLUME_CHECK[📊 Volume Analysis]
+        PRICE_STABILITY[📈 Price Stability Check]
+        MARKET_CAP[💎 Market Cap Analysis]
+    end
+    
+    subgraph "📱 Social Validation"
+        SOCIAL_PRESENCE[📱 Social Media Check]
+        COMMUNITY_SIZE[👥 Community Analysis]
+        ENGAGEMENT[💬 Engagement Metrics]
+        SENTIMENT_SCORE[😊 Sentiment Analysis]
+    end
+    
+    subgraph "🎯 Risk Scoring"
+        RISK_CALC[🧮 Risk Calculator]
+        SCORE_WEIGHT[⚖️ Score Weighting]
+        THRESHOLD_CHECK[🎯 Threshold Validation]
+        FINAL_DECISION[✅ Go/No-Go Decision]
+    end
+    
+    subgraph "⚡ Execution Controls"
+        POSITION_SIZE[💰 Position Sizing]
+        STOP_LOSS[🛑 Stop Loss Setup]
+        TAKE_PROFIT[💰 Take Profit Setup]
+        EXECUTION[⚡ Trade Execution]
+    end
+    
+    NEW_TOKEN --> METADATA
+    METADATA --> BASIC_INFO
+    
+    BASIC_INFO --> MINT_CHECK
+    BASIC_INFO --> FREEZE_CHECK
+    BASIC_INFO --> OWNERSHIP
+    BASIC_INFO --> CONTRACT_SCAN
+    
+    BASIC_INFO --> LIQUIDITY_CHECK
+    BASIC_INFO --> VOLUME_CHECK
+    BASIC_INFO --> PRICE_STABILITY
+    BASIC_INFO --> MARKET_CAP
+    
+    BASIC_INFO --> SOCIAL_PRESENCE
+    BASIC_INFO --> COMMUNITY_SIZE
+    BASIC_INFO --> ENGAGEMENT
+    BASIC_INFO --> SENTIMENT_SCORE
+    
+    MINT_CHECK --> RISK_CALC
+    FREEZE_CHECK --> RISK_CALC
+    OWNERSHIP --> RISK_CALC
+    CONTRACT_SCAN --> RISK_CALC
+    LIQUIDITY_CHECK --> RISK_CALC
+    VOLUME_CHECK --> RISK_CALC
+    PRICE_STABILITY --> RISK_CALC
+    MARKET_CAP --> RISK_CALC
+    SOCIAL_PRESENCE --> RISK_CALC
+    COMMUNITY_SIZE --> RISK_CALC
+    ENGAGEMENT --> RISK_CALC
+    SENTIMENT_SCORE --> RISK_CALC
+    
+    RISK_CALC --> SCORE_WEIGHT
+    SCORE_WEIGHT --> THRESHOLD_CHECK
+    THRESHOLD_CHECK --> FINAL_DECISION
+    
+    FINAL_DECISION -->|✅ Approved| POSITION_SIZE
+    FINAL_DECISION -->|❌ Rejected| NEW_TOKEN
+    
+    POSITION_SIZE --> STOP_LOSS
+    STOP_LOSS --> TAKE_PROFIT
+    TAKE_PROFIT --> EXECUTION
+    
+    style NEW_TOKEN fill:#4ecdc4
+    style RISK_CALC fill:#ff6b6b
+    style FINAL_DECISION fill:#45b7d1
+    style EXECUTION fill:#96ceb4
+```
+
+### 📈 Portfolio Management Flow
+
+```mermaid
+graph LR
+    subgraph "💰 Portfolio State"
+        BALANCE[💳 Current Balance<br/>SOL/USDC]
+        POSITIONS[📊 Active Positions<br/>Token Holdings]
+        PNL[📈 P&L Tracking<br/>Realized/Unrealized]
+        PERFORMANCE[🎯 Performance Metrics<br/>Win Rate, ROI]
+    end
+    
+    subgraph "🎯 Position Management"
+        ENTRY[📥 Position Entry<br/>Buy Orders]
+        MONITORING[👁️ Position Monitoring<br/>Price Tracking]
+        EXIT[📤 Position Exit<br/>Sell Orders]
+        REBALANCE[⚖️ Portfolio Rebalancing<br/>Risk Adjustment]
+    end
+    
+    subgraph "🛡️ Risk Controls"
+        SIZE_LIMIT[📏 Position Size Limits<br/>Max Exposure]
+        STOP_LOSS[🛑 Stop Loss Orders<br/>Loss Protection]
+        TAKE_PROFIT[💰 Take Profit Orders<br/>Profit Taking]
+        CORRELATION[🔗 Correlation Analysis<br/>Diversification]
+    end
+    
+    subgraph "📊 Analytics"
+        METRICS[📈 Performance Metrics<br/>Sharpe, Sortino]
+        ATTRIBUTION[🎯 Return Attribution<br/>Source Analysis]
+        DRAWDOWN[📉 Drawdown Analysis<br/>Risk Assessment]
+        REPORTING[📋 Portfolio Reports<br/>Periodic Updates]
+    end
+    
+    BALANCE --> ENTRY
+    POSITIONS --> MONITORING
+    PNL --> EXIT
+    PERFORMANCE --> REBALANCE
+    
+    ENTRY --> SIZE_LIMIT
+    MONITORING --> STOP_LOSS
+    EXIT --> TAKE_PROFIT
+    REBALANCE --> CORRELATION
+    
+    SIZE_LIMIT --> METRICS
+    STOP_LOSS --> ATTRIBUTION
+    TAKE_PROFIT --> DRAWDOWN
+    CORRELATION --> REPORTING
+    
+    METRICS --> BALANCE
+    ATTRIBUTION --> POSITIONS
+    DRAWDOWN --> PNL
+    REPORTING --> PERFORMANCE
+    
+    style BALANCE fill:#4ecdc4
+    style MONITORING fill:#ff6b6b
+    style STOP_LOSS fill:#feca57
+    style METRICS fill:#45b7d1
+```
+
+### 🔄 Real-Time Signal Processing
+
+```mermaid
+sequenceDiagram
+    participant RPC as 🔗 Solana RPC
+    participant Bot as 🤖 Trading Bot
+    participant AI as 🧠 Azure OpenAI
+    participant Filter as 🛡️ Filter Agent
+    participant Risk as ⚖️ Risk Manager
+    participant Exec as ⚡ Executor
+    participant UI as 📱 Dashboard
+    
+    RPC->>Bot: 🆕 New Token Event
+    Bot->>AI: 📊 Analyze Token Data
+    AI->>Bot: 🎯 Generated Signal
+    Bot->>Filter: 🔍 Security Check
+    Filter->>Bot: ✅ Token Approved
+    Bot->>Risk: 💰 Calculate Position
+    Risk->>Bot: 📏 Position Size
+    Bot->>Exec: ⚡ Execute Trade
+    Exec->>Bot: ✅ Trade Confirmed
+    Bot->>UI: 📊 Update Dashboard
+    
+    Note over RPC,UI: Real-time processing in <100ms
+```
+
+### 🌊 Blockchain Integration Architecture
+
+```mermaid
+graph TB
+    subgraph "🔗 Blockchain Connections"
+        MAIN_RPC[⚡ Primary RPC<br/>Helius/QuickNode]
+        BACKUP_RPC[🔄 Backup RPC<br/>Fallback Provider]
+        WS_RPC[📡 WebSocket RPC<br/>Real-time Events]
+        ARCHIVE_RPC[📚 Archive RPC<br/>Historical Data]
+    end
+    
+    subgraph "🌊 DEX Integrations"
+        JUPITER[🪐 Jupiter Aggregator<br/>Best Price Routing]
+        RAYDIUM[🌊 Raydium DEX<br/>AMM Trading]
+        ORCA[🐋 Orca DEX<br/>Concentrated Liquidity]
+        METEORA[☄️ Meteora<br/>Dynamic Pools]
+    end
+    
+    subgraph "📊 Data Providers"
+        HELIUS_API[🔗 Helius Enhanced API<br/>Transaction Parsing]
+        BIRDEYE[🐦 Birdeye API<br/>Price & Volume Data]
+        COINGECKO[🦎 CoinGecko API<br/>Market Data]
+        DEXSCREENER[📈 DexScreener<br/>Trading Analytics]
+    end
+    
+    subgraph "🤖 Trading Engine"
+        MONITOR[👁️ Market Monitor<br/>Event Listener]
+        ANALYZER[🧠 Data Analyzer<br/>Signal Generator]
+        EXECUTOR[⚡ Trade Executor<br/>Order Manager]
+        TRACKER[📊 Position Tracker<br/>P&L Monitor]
+    end
+    
+    MAIN_RPC --> MONITOR
+    BACKUP_RPC --> MONITOR
+    WS_RPC --> MONITOR
+    ARCHIVE_RPC --> ANALYZER
+    
+    JUPITER --> EXECUTOR
+    RAYDIUM --> EXECUTOR
+    ORCA --> EXECUTOR
+    METEORA --> EXECUTOR
+    
+    HELIUS_API --> ANALYZER
+    BIRDEYE --> ANALYZER
+    COINGECKO --> ANALYZER
+    DEXSCREENER --> ANALYZER
+    
+    MONITOR --> ANALYZER
+    ANALYZER --> EXECUTOR
+    EXECUTOR --> TRACKER
+    
+    style MAIN_RPC fill:#ff6b6b
+    style JUPITER fill:#4ecdc4
+    style ANALYZER fill:#45b7d1
+    style EXECUTOR fill:#96ceb4
+```
+
+### 🎯 Signal Generation Pipeline
+
+```mermaid
+flowchart LR
+    subgraph "📡 Data Ingestion"
+        TX_STREAM[🔄 Transaction Stream<br/>Real-time Blockchain]
+        PRICE_FEED[💰 Price Feeds<br/>Market Data]
+        SOCIAL_FEED[📱 Social Feeds<br/>Sentiment Data]
+        NEWS_FEED[📰 News Feeds<br/>Market Events]
+    end
+    
+    subgraph "🔍 Pattern Detection"
+        WHALE_DETECT[🐋 Whale Detection<br/>Large Transactions]
+        VOLUME_SPIKE[📊 Volume Spikes<br/>Activity Surges]
+        PRICE_PATTERN[📈 Price Patterns<br/>Technical Analysis]
+        SOCIAL_BUZZ[🗣️ Social Buzz<br/>Viral Content]
+    end
+    
+    subgraph "🧠 AI Processing"
+        NLP[📝 NLP Analysis<br/>Text Processing]
+        ML_MODEL[🤖 ML Models<br/>Pattern Recognition]
+        SENTIMENT[😊 Sentiment Analysis<br/>Market Mood]
+        CORRELATION[🔗 Correlation Analysis<br/>Market Relationships]
+    end
+    
+    subgraph "🎯 Signal Generation"
+        SIGNAL_FUSION[🔄 Signal Fusion<br/>Multi-source Combination]
+        CONFIDENCE[📊 Confidence Scoring<br/>Signal Strength]
+        TIMING[⏰ Timing Analysis<br/>Entry/Exit Points]
+        RISK_ADJUST[⚖️ Risk Adjustment<br/>Position Sizing]
+    end
+    
+    subgraph "📊 Output Signals"
+        BUY_SIGNAL[🟢 Buy Signals<br/>Entry Opportunities]
+        SELL_SIGNAL[🔴 Sell Signals<br/>Exit Triggers]
+        HOLD_SIGNAL[🟡 Hold Signals<br/>Position Maintenance]
+        ALERT_SIGNAL[🚨 Alert Signals<br/>Market Warnings]
+    end
+    
+    TX_STREAM --> WHALE_DETECT
+    PRICE_FEED --> VOLUME_SPIKE
+    SOCIAL_FEED --> SOCIAL_BUZZ
+    NEWS_FEED --> PRICE_PATTERN
+    
+    WHALE_DETECT --> NLP
+    VOLUME_SPIKE --> ML_MODEL
+    PRICE_PATTERN --> SENTIMENT
+    SOCIAL_BUZZ --> CORRELATION
+    
+    NLP --> SIGNAL_FUSION
+    ML_MODEL --> SIGNAL_FUSION
+    SENTIMENT --> CONFIDENCE
+    CORRELATION --> TIMING
+    
+    SIGNAL_FUSION --> BUY_SIGNAL
+    CONFIDENCE --> SELL_SIGNAL
+    TIMING --> HOLD_SIGNAL
+    RISK_ADJUST --> ALERT_SIGNAL
+    
+    style TX_STREAM fill:#ff6b6b
+    style ML_MODEL fill:#4ecdc4
+    style SIGNAL_FUSION fill:#45b7d1
+    style BUY_SIGNAL fill:#96ceb4
+```
+
+### 🛡️ Multi-Layer Security Architecture
+
+```mermaid
+graph TB
+    subgraph "🔐 Authentication Layer"
+        API_KEY[🔑 API Key Management<br/>Secure Storage]
+        WALLET_AUTH[💳 Wallet Authentication<br/>Private Key Security]
+        SESSION[🎫 Session Management<br/>Token Validation]
+        MFA[🔒 Multi-Factor Auth<br/>Additional Security]
+    end
+    
+    subgraph "🛡️ Authorization Layer"
+        RBAC[👤 Role-Based Access<br/>Permission Control]
+        RATE_LIMIT[⏱️ Rate Limiting<br/>API Protection]
+        IP_FILTER[🌐 IP Filtering<br/>Network Security]
+        AUDIT[📋 Audit Logging<br/>Activity Tracking]
+    end
+    
+    subgraph "🔍 Validation Layer"
+        INPUT_VALID[✅ Input Validation<br/>Data Sanitization]
+        SIGNATURE_VERIFY[✍️ Signature Verification<br/>Transaction Security]
+        BALANCE_CHECK[💰 Balance Verification<br/>Fund Protection]
+        SLIPPAGE_PROTECT[📊 Slippage Protection<br/>Price Security]
+    end
+    
+    subgraph "🚨 Monitoring Layer"
+        ANOMALY_DETECT[🔍 Anomaly Detection<br/>Unusual Activity]
+        THREAT_INTEL[🛡️ Threat Intelligence<br/>Security Feeds]
+        INCIDENT_RESPONSE[🚨 Incident Response<br/>Automated Actions]
+        FORENSICS[🔬 Digital Forensics<br/>Investigation Tools]
+    end
+    
+    subgraph "💾 Data Protection"
+        ENCRYPTION[🔐 Data Encryption<br/>At Rest & Transit]
+        BACKUP[💿 Secure Backup<br/>Data Recovery]
+        RETENTION[📅 Data Retention<br/>Compliance]
+        PRIVACY[🔒 Privacy Controls<br/>Data Minimization]
+    end
+    
+    API_KEY --> RBAC
+    WALLET_AUTH --> RATE_LIMIT
+    SESSION --> IP_FILTER
+    MFA --> AUDIT
+    
+    RBAC --> INPUT_VALID
+    RATE_LIMIT --> SIGNATURE_VERIFY
+    IP_FILTER --> BALANCE_CHECK
+    AUDIT --> SLIPPAGE_PROTECT
+    
+    INPUT_VALID --> ANOMALY_DETECT
+    SIGNATURE_VERIFY --> THREAT_INTEL
+    BALANCE_CHECK --> INCIDENT_RESPONSE
+    SLIPPAGE_PROTECT --> FORENSICS
+    
+    ANOMALY_DETECT --> ENCRYPTION
+    THREAT_INTEL --> BACKUP
+    INCIDENT_RESPONSE --> RETENTION
+    FORENSICS --> PRIVACY
+    
+    style API_KEY fill:#ff6b6b
+    style RBAC fill:#4ecdc4
+    style ANOMALY_DETECT fill:#45b7d1
+    style ENCRYPTION fill:#96ceb4
+```
+
+### 📊 Performance Monitoring Dashboard
+
+```mermaid
+graph LR
+    subgraph "⚡ System Metrics"
+        CPU[🖥️ CPU Usage<br/>Processing Load]
+        MEMORY[💾 Memory Usage<br/>RAM Consumption]
+        NETWORK[🌐 Network I/O<br/>Bandwidth Usage]
+        DISK[💿 Disk I/O<br/>Storage Performance]
+    end
+    
+    subgraph "🤖 Trading Metrics"
+        TRADES[📊 Trade Volume<br/>Executed Orders]
+        LATENCY[⚡ Execution Latency<br/>Response Time]
+        SUCCESS[✅ Success Rate<br/>Order Fill Rate]
+        SLIPPAGE[📈 Slippage Analysis<br/>Price Impact]
+    end
+    
+    subgraph "💰 Financial Metrics"
+        PNL[📈 P&L Performance<br/>Profit/Loss]
+        DRAWDOWN[📉 Max Drawdown<br/>Risk Exposure]
+        SHARPE[📊 Sharpe Ratio<br/>Risk-Adjusted Return]
+        WIN_RATE[🎯 Win Rate<br/>Success Percentage]
+    end
+    
+    subgraph "🔍 Market Metrics"
+        SIGNALS[🎯 Signal Quality<br/>Accuracy Score]
+        OPPORTUNITIES[🔍 Market Opportunities<br/>Detected Tokens]
+        FILTERS[🛡️ Filter Efficiency<br/>Safety Score]
+        LIQUIDITY[💧 Liquidity Health<br/>Market Depth]
+    end
+    
+    subgraph "📱 Dashboard Views"
+        REALTIME[⚡ Real-time View<br/>Live Monitoring]
+        HISTORICAL[📊 Historical View<br/>Trend Analysis]
+        ALERTS[🚨 Alert Center<br/>Notifications]
+        REPORTS[📋 Report Center<br/>Analytics]
+    end
+    
+    CPU --> REALTIME
+    MEMORY --> REALTIME
+    NETWORK --> HISTORICAL
+    DISK --> HISTORICAL
+    
+    TRADES --> REALTIME
+    LATENCY --> ALERTS
+    SUCCESS --> REPORTS
+    SLIPPAGE --> REPORTS
+    
+    PNL --> REALTIME
+    DRAWDOWN --> ALERTS
+    SHARPE --> HISTORICAL
+    WIN_RATE --> REPORTS
+    
+    SIGNALS --> REALTIME
+    OPPORTUNITIES --> HISTORICAL
+    FILTERS --> REPORTS
+    LIQUIDITY --> ALERTS
+    
+    style CPU fill:#ff6b6b
+    style TRADES fill:#4ecdc4
+    style PNL fill:#45b7d1
+    style SIGNALS fill:#96ceb4
+    style REALTIME fill:#feca57
 ```
 
 ## ✨ Features
@@ -254,6 +893,187 @@ graph TD
 | **Storage** | 10GB | 50GB | 100GB+ |
 | **Network** | 10 Mbps | 100 Mbps | 1 Gbps+ |
 | **OS** | macOS/Linux/Windows | macOS/Linux | Linux Server |
+
+### 🚀 Deployment Architecture
+
+```mermaid
+graph TB
+    subgraph "☁️ Cloud Infrastructure"
+        subgraph "🌐 Load Balancer"
+            LB[⚖️ Load Balancer<br/>Traffic Distribution]
+            SSL[🔒 SSL Termination<br/>HTTPS Security]
+        end
+        
+        subgraph "🖥️ Application Servers"
+            APP1[🖥️ App Server 1<br/>Primary Instance]
+            APP2[🖥️ App Server 2<br/>Backup Instance]
+            APP3[🖥️ App Server 3<br/>Scaling Instance]
+        end
+        
+        subgraph "💾 Database Cluster"
+            DB_PRIMARY[🗄️ Primary DB<br/>Read/Write]
+            DB_REPLICA[🗄️ Read Replica<br/>Read Only]
+            DB_BACKUP[💿 Backup Storage<br/>Point-in-time Recovery]
+        end
+        
+        subgraph "🔥 Cache Layer"
+            REDIS_PRIMARY[🔥 Redis Primary<br/>Hot Cache]
+            REDIS_REPLICA[🔄 Redis Replica<br/>Failover]
+            MEMCACHED[⚡ Memcached<br/>Session Storage]
+        end
+    end
+    
+    subgraph "🌊 External Services"
+        subgraph "🔗 Blockchain RPCs"
+            HELIUS[🔗 Helius RPC<br/>Primary Provider]
+            QUICKNODE[⚡ QuickNode<br/>Backup Provider]
+            ALCHEMY[🧪 Alchemy<br/>Archive Data]
+        end
+        
+        subgraph "🧠 AI Services"
+            AZURE_AI[🧠 Azure OpenAI<br/>Signal Processing]
+            ANTHROPIC[🤖 Anthropic<br/>Backup AI]
+            OPENAI[🎯 OpenAI<br/>Analysis]
+        end
+        
+        subgraph "📊 Data Providers"
+            BIRDEYE_API[🐦 Birdeye<br/>Price Data]
+            COINGECKO_API[🦎 CoinGecko<br/>Market Data]
+            DEXSCREENER_API[📈 DexScreener<br/>DEX Data]
+        end
+    end
+    
+    subgraph "📱 Client Applications"
+        WEB_APP[🌐 Web Dashboard<br/>Next.js Frontend]
+        MOBILE_APP[📱 Mobile App<br/>React Native]
+        API_CLIENTS[🔌 API Clients<br/>Third-party Integrations]
+    end
+    
+    subgraph "🔍 Monitoring & Logging"
+        PROMETHEUS[📊 Prometheus<br/>Metrics Collection]
+        GRAFANA[📈 Grafana<br/>Visualization]
+        ELASTICSEARCH[🔍 Elasticsearch<br/>Log Aggregation]
+        KIBANA[📋 Kibana<br/>Log Analysis]
+    end
+    
+    WEB_APP --> LB
+    MOBILE_APP --> LB
+    API_CLIENTS --> LB
+    
+    LB --> SSL
+    SSL --> APP1
+    SSL --> APP2
+    SSL --> APP3
+    
+    APP1 --> DB_PRIMARY
+    APP2 --> DB_REPLICA
+    APP3 --> DB_REPLICA
+    
+    DB_PRIMARY --> DB_BACKUP
+    DB_PRIMARY --> DB_REPLICA
+    
+    APP1 --> REDIS_PRIMARY
+    APP2 --> REDIS_REPLICA
+    APP3 --> MEMCACHED
+    
+    REDIS_PRIMARY --> REDIS_REPLICA
+    
+    APP1 --> HELIUS
+    APP1 --> QUICKNODE
+    APP1 --> ALCHEMY
+    
+    APP1 --> AZURE_AI
+    APP2 --> ANTHROPIC
+    APP3 --> OPENAI
+    
+    APP1 --> BIRDEYE_API
+    APP2 --> COINGECKO_API
+    APP3 --> DEXSCREENER_API
+    
+    APP1 --> PROMETHEUS
+    APP2 --> PROMETHEUS
+    APP3 --> PROMETHEUS
+    
+    PROMETHEUS --> GRAFANA
+    APP1 --> ELASTICSEARCH
+    ELASTICSEARCH --> KIBANA
+    
+    style LB fill:#ff6b6b
+    style APP1 fill:#4ecdc4
+    style DB_PRIMARY fill:#45b7d1
+    style REDIS_PRIMARY fill:#96ceb4
+    style HELIUS fill:#feca57
+```
+
+### 🔄 CI/CD Pipeline
+
+```mermaid
+flowchart LR
+    subgraph "👨‍💻 Development"
+        DEV[👨‍💻 Developer<br/>Code Changes]
+        GIT[📁 Git Repository<br/>Version Control]
+        PR[🔄 Pull Request<br/>Code Review]
+    end
+    
+    subgraph "🧪 Testing Pipeline"
+        LINT[✅ Linting<br/>Code Quality]
+        UNIT[🧪 Unit Tests<br/>Component Testing]
+        INTEGRATION[🔗 Integration Tests<br/>API Testing]
+        E2E[🎭 E2E Tests<br/>User Journey]
+    end
+    
+    subgraph "🏗️ Build Pipeline"
+        BUILD[🏗️ Build<br/>Compilation]
+        DOCKER[🐳 Docker Build<br/>Containerization]
+        SECURITY[🛡️ Security Scan<br/>Vulnerability Check]
+        ARTIFACT[📦 Artifact Store<br/>Build Storage]
+    end
+    
+    subgraph "🚀 Deployment Pipeline"
+        STAGING[🎭 Staging Deploy<br/>Pre-production]
+        SMOKE[💨 Smoke Tests<br/>Basic Validation]
+        PROD[🌟 Production Deploy<br/>Live Environment]
+        MONITOR[📊 Monitoring<br/>Health Checks]
+    end
+    
+    subgraph "🔄 Rollback Strategy"
+        HEALTH_CHECK[❤️ Health Check<br/>System Validation]
+        ROLLBACK[⏪ Rollback<br/>Previous Version]
+        HOTFIX[🔥 Hotfix<br/>Emergency Fix]
+    end
+    
+    DEV --> GIT
+    GIT --> PR
+    PR --> LINT
+    
+    LINT --> UNIT
+    UNIT --> INTEGRATION
+    INTEGRATION --> E2E
+    
+    E2E --> BUILD
+    BUILD --> DOCKER
+    DOCKER --> SECURITY
+    SECURITY --> ARTIFACT
+    
+    ARTIFACT --> STAGING
+    STAGING --> SMOKE
+    SMOKE --> PROD
+    PROD --> MONITOR
+    
+    MONITOR --> HEALTH_CHECK
+    HEALTH_CHECK -->|❌ Failed| ROLLBACK
+    HEALTH_CHECK -->|🚨 Critical| HOTFIX
+    HEALTH_CHECK -->|✅ Healthy| MONITOR
+    
+    ROLLBACK --> STAGING
+    HOTFIX --> BUILD
+    
+    style DEV fill:#ff6b6b
+    style BUILD fill:#4ecdc4
+    style PROD fill:#45b7d1
+    style HEALTH_CHECK fill:#96ceb4
+    style ROLLBACK fill:#feca57
+```
 
 ### 📋 Prerequisites Checklist
 
