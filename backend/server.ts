@@ -4,6 +4,7 @@ import { Connection, Commitment, Keypair } from '@solana/web3.js';
 import { PortfolioService } from './portfolio-service';
 import { MemeScannerService } from './meme-scanner';
 import { WhaleTrackerService } from './whale-tracker';
+import { SignalFeedService } from './signal-feed-service';
 import bs58 from 'bs58';
 import dotenv from 'dotenv';
 import WebSocket from 'ws';
@@ -64,6 +65,17 @@ try {
   whaleTrackerService.startTracking();
 } catch (error) {
   console.warn('⚠️  Failed to initialize Whale Tracker service:', error);
+}
+
+// Initialize Signal Feed service
+let signalFeedService: SignalFeedService | null = null;
+try {
+  signalFeedService = new SignalFeedService();
+  // Connect all services to the signal feed
+  signalFeedService.setServices(memeScannerService, whaleTrackerService, portfolioService);
+  console.log('📡 Signal Feed Service initialized');
+} catch (error) {
+  console.warn('⚠️  Failed to initialize Signal Feed service:', error);
 }
 
 console.log(`🔗 Using RPC: ${RPC_ENDPOINT}`);
@@ -1129,6 +1141,133 @@ app.post('/api/whale-tracker/stop', (req: Request, res: Response) => {
     console.error('Failed to stop whale tracking:', error);
     res.status(500).json({ 
       error: 'Failed to stop whale tracking' 
+    });
+  }
+});
+
+// SIGNAL FEED API ENDPOINTS
+// ==========================
+
+// API endpoint to get all signals
+app.get('/api/signal-feed/signals', (req: Request, res: Response) => {
+  if (!signalFeedService) {
+    return res.status(503).json({ 
+      error: 'Signal Feed service not available.' 
+    });
+  }
+
+  try {
+    const signals = signalFeedService.getSignals();
+    res.json(signals);
+  } catch (error) {
+    console.error('Failed to get signals:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch signals' 
+    });
+  }
+});
+
+// API endpoint to get signals grouped by category
+app.get('/api/signal-feed/signals-grouped', (req: Request, res: Response) => {
+  if (!signalFeedService) {
+    return res.status(503).json({ 
+      error: 'Signal Feed service not available.' 
+    });
+  }
+
+  try {
+    const groupedSignals = signalFeedService.getSignalsGrouped();
+    res.json(groupedSignals);
+  } catch (error) {
+    console.error('Failed to get grouped signals:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch grouped signals' 
+    });
+  }
+});
+
+// API endpoint to get signals by category
+app.get('/api/signal-feed/signals/:category', (req: Request, res: Response) => {
+  if (!signalFeedService) {
+    return res.status(503).json({ 
+      error: 'Signal Feed service not available.' 
+    });
+  }
+
+  try {
+    const category = req.params.category;
+    const signals = signalFeedService.getSignalsByCategory(category);
+    res.json(signals);
+  } catch (error) {
+    console.error('Failed to get signals by category:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch signals by category' 
+    });
+  }
+});
+
+// API endpoint to get signal feed stats
+app.get('/api/signal-feed/stats', (req: Request, res: Response) => {
+  if (!signalFeedService) {
+    return res.status(503).json({ 
+      error: 'Signal Feed service not available.' 
+    });
+  }
+
+  try {
+    const stats = signalFeedService.getStats();
+    res.json(stats);
+  } catch (error) {
+    console.error('Failed to get signal feed stats:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch signal feed stats' 
+    });
+  }
+});
+
+// API endpoint to add manual signal (for testing)
+app.post('/api/signal-feed/manual-signal', (req: Request, res: Response) => {
+  if (!signalFeedService) {
+    return res.status(503).json({ 
+      error: 'Signal Feed service not available.' 
+    });
+  }
+
+  try {
+    const { message, type, category } = req.body;
+    if (!message || !type || !category) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: message, type, category' 
+      });
+    }
+
+    signalFeedService.addManualSignal(message, type, category);
+    res.json({ success: true, message: 'Manual signal added' });
+  } catch (error) {
+    console.error('Failed to add manual signal:', error);
+    res.status(500).json({ 
+      error: 'Failed to add manual signal' 
+    });
+  }
+});
+
+// API endpoint to manually trigger signal generation (for testing)
+app.post('/api/signal-feed/trigger', (req: Request, res: Response) => {
+  if (!signalFeedService) {
+    return res.status(503).json({ 
+      error: 'Signal Feed service not available.' 
+    });
+  }
+
+  try {
+    // Manually trigger signal generation by calling the private method via reflection
+    // This is for testing purposes
+    (signalFeedService as any).generateSignalsFromAllSources();
+    res.json({ success: true, message: 'Signal generation triggered' });
+  } catch (error) {
+    console.error('Failed to trigger signal generation:', error);
+    res.status(500).json({ 
+      error: 'Failed to trigger signal generation' 
     });
   }
 });
