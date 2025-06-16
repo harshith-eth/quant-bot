@@ -24,6 +24,23 @@ import BN from 'bn.js';
 import { WarpTransactionExecutor } from './transactions/warp-transaction-executor';
 import { JitoTransactionExecutor } from './transactions/jito-rpc-transaction-executor';
 
+// Import the trade logging function
+let addTradeLog: ((type: 'buy' | 'sell' | 'info' | 'error', message: string, mint?: string, signature?: string) => void) | null = null;
+
+// Dynamically import the logging function to avoid circular dependencies
+async function getTradeLogger() {
+  if (!addTradeLog) {
+    try {
+      const serverModule = await import('./server');
+      addTradeLog = serverModule.addTradeLog;
+    } catch (error) {
+      // Fallback if server module is not available
+      addTradeLog = () => {};
+    }
+  }
+  return addTradeLog;
+}
+
 export interface BotConfig {
   wallet: Keypair;
   checkRenounced: boolean;
@@ -103,15 +120,20 @@ export class Bot {
   }
 
   public async buy(accountId: PublicKey, poolState: LiquidityStateV4) {
+    const tradeLogger = await getTradeLogger();
+    
     logger.trace({ mint: poolState.baseMint }, `Processing new pool...`);
+    tradeLogger('info', `Processing new pool: ${poolState.baseMint.toString()}`, poolState.baseMint.toString());
 
     if (this.config.useSnipeList && !this.snipeListCache?.isInList(poolState.baseMint.toString())) {
       logger.debug({ mint: poolState.baseMint.toString() }, `Skipping buy because token is not in a snipe list`);
+      tradeLogger('info', `Skipping buy - token not in snipe list`, poolState.baseMint.toString());
       return;
     }
 
     if (this.config.autoBuyDelay > 0) {
       logger.debug({ mint: poolState.baseMint }, `Waiting for ${this.config.autoBuyDelay} ms before buy`);
+      tradeLogger('info', `Waiting ${this.config.autoBuyDelay}ms before buy`, poolState.baseMint.toString());
       await sleep(this.config.autoBuyDelay);
     }
 
@@ -121,6 +143,7 @@ export class Bot {
           { mint: poolState.baseMint.toString() },
           `Skipping buy because one token at a time is turned on and token is already being processed`,
         );
+        tradeLogger('info', `Skipping buy - one token at a time mode active`, poolState.baseMint.toString());
         return;
       }
 
@@ -135,6 +158,7 @@ export class Bot {
 
       if (!market) {
         logger.error({ mint: poolState.baseMint.toString() }, `Market data not found for ${poolState.marketId.toString()}`);
+        tradeLogger('error', `Market data not found`, poolState.baseMint.toString());
         return;
       }
 
@@ -145,6 +169,7 @@ export class Bot {
 
         if (!match) {
           logger.trace({ mint: poolKeys.baseMint.toString() }, `Skipping buy because pool doesn't match filters`);
+          tradeLogger('info', `Skipping buy - pool doesn't match filters`, poolKeys.baseMint.toString());
           return;
         }
       }
@@ -155,6 +180,8 @@ export class Bot {
             { mint: poolState.baseMint.toString() },
             `Send buy transaction attempt: ${i + 1}/${this.config.maxBuyRetries}`,
           );
+          tradeLogger('buy', `Buy attempt ${i + 1}/${this.config.maxBuyRetries}`, poolState.baseMint.toString());
+          
           const tokenOut = new Token(TOKEN_PROGRAM_ID, poolKeys.baseMint, poolKeys.baseDecimals);
           const result = await this.swap(
             poolKeys,
@@ -177,7 +204,7 @@ export class Bot {
               },
               `Confirmed buy tx`,
             );
-
+            tradeLogger('buy', `✅ Buy confirmed - ${this.config.quoteAmount.toFixed()} ${this.config.quoteToken.symbol}`, poolState.baseMint.toString(), result.signature);
             break;
           }
 
@@ -189,12 +216,15 @@ export class Bot {
             },
             `Error confirming buy tx`,
           );
+          tradeLogger('error', `Buy confirmation failed: ${result.error}`, poolState.baseMint.toString(), result.signature);
         } catch (error) {
           logger.debug({ mint: poolState.baseMint.toString(), error }, `Error confirming buy transaction`);
+          tradeLogger('error', `Buy transaction error: ${error instanceof Error ? error.message : 'Unknown error'}`, poolState.baseMint.toString());
         }
       }
     } catch (error) {
       logger.error({ mint: poolState.baseMint.toString(), error }, `Failed to buy token`);
+      tradeLogger('error', `Failed to buy token: ${error instanceof Error ? error.message : 'Unknown error'}`, poolState.baseMint.toString());
     } finally {
       if (this.config.oneTokenAtATime) {
         this.mutex.release();
@@ -203,17 +233,21 @@ export class Bot {
   }
 
   public async sell(accountId: PublicKey, rawAccount: RawAccount) {
+    const tradeLogger = await getTradeLogger();
+    
     if (this.config.oneTokenAtATime) {
       this.sellExecutionCount++;
     }
 
     try {
       logger.trace({ mint: rawAccount.mint }, `Processing new token...`);
+      tradeLogger('info', `Processing sell for token`, rawAccount.mint.toString());
 
       const poolData = await this.poolStorage.get(rawAccount.mint.toString());
 
       if (!poolData) {
         logger.trace({ mint: rawAccount.mint.toString() }, `Token pool data is not found, can't sell`);
+        tradeLogger('info', `Token pool data not found - can't sell`, rawAccount.mint.toString());
         return;
       }
 
@@ -222,11 +256,13 @@ export class Bot {
 
       if (tokenAmountIn.isZero()) {
         logger.info({ mint: rawAccount.mint.toString() }, `Empty balance, can't sell`);
+        tradeLogger('info', `Empty balance - can't sell`, rawAccount.mint.toString());
         return;
       }
 
       if (this.config.autoSellDelay > 0) {
         logger.debug({ mint: rawAccount.mint }, `Waiting for ${this.config.autoSellDelay} ms before sell`);
+        tradeLogger('info', `Waiting ${this.config.autoSellDelay}ms before sell`, rawAccount.mint.toString());
         await sleep(this.config.autoSellDelay);
       }
 
@@ -234,6 +270,7 @@ export class Bot {
 
       if (!market) {
         logger.error({ mint: rawAccount.mint.toString() }, `Market data not found for ${poolData.state.marketId.toString()}`);
+        tradeLogger('error', `Market data not found for sell`, rawAccount.mint.toString());
         return;
       }
 
@@ -247,6 +284,7 @@ export class Bot {
             { mint: rawAccount.mint },
             `Send sell transaction attempt: ${i + 1}/${this.config.maxSellRetries}`,
           );
+          tradeLogger('sell', `Sell attempt ${i + 1}/${this.config.maxSellRetries}`, rawAccount.mint.toString());
 
           const result = await this.swap(
             poolKeys,
@@ -270,6 +308,7 @@ export class Bot {
               },
               `Confirmed sell tx`,
             );
+            tradeLogger('sell', `✅ Sell confirmed - ${tokenAmountIn.toFixed()} tokens`, rawAccount.mint.toString(), result.signature);
             break;
           }
 
@@ -281,12 +320,15 @@ export class Bot {
             },
             `Error confirming sell tx`,
           );
+          tradeLogger('error', `Sell confirmation failed: ${result.error}`, rawAccount.mint.toString(), result.signature);
         } catch (error) {
           logger.debug({ mint: rawAccount.mint.toString(), error }, `Error confirming sell transaction`);
+          tradeLogger('error', `Sell transaction error: ${error instanceof Error ? error.message : 'Unknown error'}`, rawAccount.mint.toString());
         }
       }
     } catch (error) {
       logger.error({ mint: rawAccount.mint.toString(), error }, `Failed to sell token`);
+      tradeLogger('error', `Failed to sell token: ${error instanceof Error ? error.message : 'Unknown error'}`, rawAccount.mint.toString());
     } finally {
       if (this.config.oneTokenAtATime) {
         this.sellExecutionCount--;
@@ -403,6 +445,8 @@ export class Bot {
   }
 
   private async priceMatch(amountIn: TokenAmount, poolKeys: LiquidityPoolKeysV4) {
+    const tradeLogger = await getTradeLogger();
+    
     if (this.config.priceCheckDuration === 0 || this.config.priceCheckInterval === 0) {
       return;
     }
@@ -417,6 +461,8 @@ export class Bot {
     const stopLoss = this.config.quoteAmount.subtract(lossAmount);
     const slippage = new Percent(this.config.sellSlippage, 100);
     let timesChecked = 0;
+
+    tradeLogger('info', `Price monitoring started - TP: ${takeProfit.toFixed()} | SL: ${stopLoss.toFixed()}`, poolKeys.baseMint.toString());
 
     do {
       try {
@@ -439,16 +485,19 @@ export class Bot {
         );
 
         if (amountOut.lt(stopLoss)) {
+          tradeLogger('info', `🔴 Stop loss triggered at ${amountOut.toFixed()}`, poolKeys.baseMint.toString());
           break;
         }
 
         if (amountOut.gt(takeProfit)) {
+          tradeLogger('info', `🟢 Take profit triggered at ${amountOut.toFixed()}`, poolKeys.baseMint.toString());
           break;
         }
 
         await sleep(this.config.priceCheckInterval);
       } catch (e) {
         logger.trace({ mint: poolKeys.baseMint.toString(), e }, `Failed to check token price`);
+        tradeLogger('error', `Price check failed: ${e instanceof Error ? e.message : 'Unknown error'}`, poolKeys.baseMint.toString());
       } finally {
         timesChecked++;
       }

@@ -455,101 +455,104 @@ export class PortfolioService {
   // Calculate comprehensive portfolio metrics with real data
   async getPortfolioMetrics(): Promise<PortfolioMetrics> {
     // Check cache first
-    const now = Date.now();
-    if (this.metricsCache.data && (now - this.metricsCache.timestamp) < this.CACHE_DURATION) {
-      logger.info('Returning cached portfolio metrics');
+    if (this.metricsCache.data && (Date.now() - this.metricsCache.timestamp) < this.CACHE_DURATION) {
       return this.metricsCache.data;
     }
 
     try {
-      logger.info('Starting portfolio metrics calculation...');
-      const solBalance = await this.getWalletBalance();
-      logger.info(`SOL balance: ${solBalance}`);
-      
-      const tokenBalances = await this.getTokenBalances();
-      logger.info(`Token balances count: ${tokenBalances.length}`);
-      
-      // Get token prices for all held tokens (including SOL)
-      const mints = tokenBalances.map(token => token.mint);
-      // Add SOL mint for price fetching
-      const allMints = ['So11111111111111111111111111111111111111112', ...mints];
-      const prices = await this.getTokenPrices(allMints);
-      logger.info(`Fetched prices for ${Object.keys(prices).length} tokens`);
-    
-    // Get SOL price
-    const solPrice = prices['So11111111111111111111111111111111111111112'] || await this.getSolPrice();
-    logger.info(`SOL price: ${solPrice}`);
-    
-    // Calculate total token value in USD (excluding SOL)
-    let totalTokenValue = 0;
-    const tokenDetails = [];
-    
-    logger.info('Processing token balances...');
-    for (const token of tokenBalances) {
-      const price = prices[token.mint] || 0;
-      const tokenValueUSD = token.actualAmount * price;
-      totalTokenValue += tokenValueUSD;
-      logger.info(`Token ${token.mint.slice(0, 8)}...: ${token.actualAmount} * ${price} = ${tokenValueUSD}`);
-      
-      tokenDetails.push({
-        mint: token.mint,
-        amount: token.actualAmount,
-        decimals: token.decimals,
-        price: price,
-        valueUSD: tokenValueUSD
-      });
-      
-      logger.info(`Token ${token.mint.slice(0, 8)}...: ${token.actualAmount.toFixed(6)} tokens @ $${price.toFixed(6)} = $${tokenValueUSD.toFixed(2)}`);
-    }
-    
-    // SOL value in USD
-    const solValueUSD = solBalance * solPrice;
-    
-    // Total portfolio value in USD (SOL + all tokens)
-    const totalPortfolioValue = solValueUSD + totalTokenValue;
-    
-    logger.info(`Portfolio breakdown:`);
-    logger.info(`- SOL: ${solBalance.toFixed(4)} SOL @ $${solPrice.toFixed(2)} = $${solValueUSD.toFixed(2)}`);
-    logger.info(`- Tokens: $${totalTokenValue.toFixed(2)}`);
-    logger.info(`- Total: $${totalPortfolioValue.toFixed(2)}`);
-    
-    // Calculate metrics from trade history
-    logger.info('Calculating trade stats...');
-    const tradeStats = await this.calculateTradeStats();
-    logger.info('Trade stats calculated successfully:', tradeStats);
-    
-    // Get initial balance for gain/loss calculations
-    logger.info('Getting initial balance...');
-    let initialBalance = await this.getInitialBalance();
-    logger.info(`Initial balance: ${initialBalance}`);
-    
-    let totalGainPercent = 0;
-    let totalGain = 0;
-    
-    if (initialBalance && initialBalance > 0) {
-      totalGain = totalPortfolioValue - initialBalance;
-      totalGainPercent = (totalGain / initialBalance) * 100;
-    }
-    
-    const metrics = {
-      totalBalance: totalPortfolioValue, // Total value in USD (SOL + tokens)
-      availableBalance: solValueUSD, // SOL balance in USD (available for trading)
-      inTrades: totalTokenValue, // Token holdings in USD (considered "in trades")
-      totalGain: totalGain,
-      totalGainPercent: totalGainPercent,
-      dayProfit: tradeStats.dayProfit,
-      dayProfitPercent: tradeStats.dayProfitPercent,
-      winRate: tradeStats.winRate,
-      avgWin: tradeStats.avgWin,
-      totalTrades: tradeStats.totalTrades,
-      winningTrades: tradeStats.winningTrades,
-      solBalance: solBalance, // SOL balance in SOL
-      solPrice: solPrice // Current SOL price in USD
-    };
+      // Get wallet balance and token balances
+      const [solBalance, tokenBalances] = await Promise.all([
+        this.getWalletBalance().catch((error) => {
+          logger.error('Error getting wallet balance:', error);
+          return 0;
+        }),
+        this.getTokenBalances().catch((error) => {
+          logger.error('Error getting token balances:', error);
+          return [];
+        })
+      ]);
 
-    // Cache the result
-    this.metricsCache = { data: metrics, timestamp: Date.now() };
-    return metrics;
+      // Get SOL price
+      const solPrice = await this.getSolPrice().catch((error) => {
+        logger.error('Error getting SOL price:', error);
+        return 240; // Fallback price
+      });
+
+      // Calculate SOL value in USD
+      const solValueUSD = solBalance * solPrice;
+
+      // Get token prices for non-zero balances
+      const nonZeroTokens = tokenBalances.filter(token => token.amount > 0);
+      const tokenMints = nonZeroTokens.map(token => token.mint);
+      
+      let tokenPrices: Record<string, number> = {};
+      if (tokenMints.length > 0) {
+        try {
+          tokenPrices = await this.getTokenPrices(tokenMints);
+        } catch (error) {
+          logger.error('Error getting token prices:', error);
+          // Continue with empty prices object
+        }
+      }
+
+      // Calculate token values
+      let totalTokenValue = 0;
+      for (const token of nonZeroTokens) {
+        try {
+          const price = tokenPrices[token.mint] || 0;
+          const value = token.amount * price;
+          if (isFinite(value) && !isNaN(value)) {
+            totalTokenValue += value;
+          }
+        } catch (error) {
+          logger.error(`Error calculating value for token ${token.mint}:`, error);
+          // Continue with next token
+        }
+      }
+
+      // Calculate total balance
+      const totalBalance = solValueUSD + totalTokenValue;
+      const availableBalance = solValueUSD; // SOL is available for trading
+      const inTrades = totalTokenValue; // Tokens are considered "in trades"
+
+      // Get trading statistics
+      let tradeStats;
+      try {
+        tradeStats = await this.calculateTradeStats();
+      } catch (error) {
+        logger.error('Error calculating trade stats:', error);
+        // Use default values
+        tradeStats = {
+          totalGain: 0,
+          totalGainPercent: 0,
+          dayProfit: 0,
+          dayProfitPercent: 0,
+          winRate: 0,
+          avgWin: 0,
+          totalTrades: 0,
+          winningTrades: 0
+        };
+      }
+
+      const metrics: PortfolioMetrics = {
+        totalBalance: isFinite(totalBalance) ? totalBalance : 0,
+        availableBalance: isFinite(availableBalance) ? availableBalance : 0,
+        inTrades: isFinite(inTrades) ? inTrades : 0,
+        totalGain: tradeStats.totalGain,
+        totalGainPercent: tradeStats.totalGainPercent,
+        dayProfit: tradeStats.dayProfit,
+        dayProfitPercent: tradeStats.dayProfitPercent,
+        winRate: tradeStats.winRate,
+        avgWin: tradeStats.avgWin,
+        totalTrades: tradeStats.totalTrades,
+        winningTrades: tradeStats.winningTrades,
+        solBalance: isFinite(solBalance) ? solBalance : 0,
+        solPrice: isFinite(solPrice) ? solPrice : 240
+      };
+
+      // Cache the result
+      this.metricsCache = { data: metrics, timestamp: Date.now() };
+      return metrics;
     } catch (error) {
       logger.error('Error calculating portfolio metrics:', error);
       if (error instanceof Error) {
@@ -560,13 +563,26 @@ export class PortfolioService {
       }
       
       // Return basic metrics as fallback
-      const solBalance = await this.getWalletBalance().catch(() => 0);
-      const solPrice = await this.getSolPrice().catch(() => 240);
+      let solBalance = 0;
+      let solPrice = 240;
+      
+      try {
+        solBalance = await this.getWalletBalance();
+      } catch (balanceError) {
+        logger.error('Error getting fallback wallet balance:', balanceError);
+      }
+      
+      try {
+        solPrice = await this.getSolPrice();
+      } catch (priceError) {
+        logger.error('Error getting fallback SOL price:', priceError);
+      }
+      
       const solValueUSD = solBalance * solPrice;
       
-      return {
-        totalBalance: solValueUSD,
-        availableBalance: solValueUSD,
+      const fallbackMetrics: PortfolioMetrics = {
+        totalBalance: isFinite(solValueUSD) ? solValueUSD : 0,
+        availableBalance: isFinite(solValueUSD) ? solValueUSD : 0,
         inTrades: 0,
         totalGain: 0,
         totalGainPercent: 0,
@@ -576,9 +592,13 @@ export class PortfolioService {
         avgWin: 0,
         totalTrades: 0,
         winningTrades: 0,
-        solBalance: solBalance,
-        solPrice: solPrice
+        solBalance: isFinite(solBalance) ? solBalance : 0,
+        solPrice: isFinite(solPrice) ? solPrice : 240
       };
+
+      // Cache the fallback result to prevent repeated errors
+      this.metricsCache = { data: fallbackMetrics, timestamp: Date.now() };
+      return fallbackMetrics;
     }
   }
 

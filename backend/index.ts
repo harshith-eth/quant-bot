@@ -137,6 +137,16 @@ export const runListener = async () => {
   logger.level = LOG_LEVEL;
   logger.info('Bot is starting...');
 
+  // Import the trade logging function
+  let addTradeLog: ((type: 'buy' | 'sell' | 'info' | 'error', message: string, mint?: string, signature?: string) => void) | null = null;
+  try {
+    const serverModule = await import('./server');
+    addTradeLog = serverModule.addTradeLog;
+  } catch (error) {
+    // Fallback if server module is not available
+    addTradeLog = () => {};
+  }
+
   const marketCache = new MarketCache(connection);
   const poolCache = new PoolCache();
   let txExecutor: TransactionExecutor;
@@ -193,15 +203,22 @@ export const runListener = async () => {
 
   if (!valid) {
     logger.error('Bot validation failed');
+    addTradeLog('error', 'Bot validation failed - check configuration');
     throw new Error('Bot validation failed');
   }
 
+  addTradeLog('info', 'Bot validation successful - initializing...');
+
   if (PRE_LOAD_EXISTING_MARKETS) {
+    addTradeLog('info', 'Pre-loading existing markets...');
     await marketCache.init({ quoteToken });
+    addTradeLog('info', 'Market cache initialized');
   }
 
   const runTimestamp = Math.floor(new Date().getTime() / 1000);
   const listeners = new Listeners(connection);
+  
+  addTradeLog('info', 'Starting blockchain listeners...');
   await listeners.start({
     walletPublicKey: wallet.publicKey,
     quoteToken,
@@ -212,6 +229,7 @@ export const runListener = async () => {
   listeners.on('market', (updatedAccountInfo: KeyedAccountInfo) => {
     const marketState = MARKET_STATE_LAYOUT_V3.decode(updatedAccountInfo.accountInfo.data);
     marketCache.save(updatedAccountInfo.accountId.toString(), marketState);
+    addTradeLog('info', `Market data updated: ${updatedAccountInfo.accountId.toString()}`);
   });
 
   listeners.on('pool', async (updatedAccountInfo: KeyedAccountInfo) => {
@@ -221,6 +239,7 @@ export const runListener = async () => {
 
     if (!exists && poolOpenTime > runTimestamp) {
       poolCache.save(updatedAccountInfo.accountId.toString(), poolState);
+      addTradeLog('info', `New pool detected: ${poolState.baseMint.toString()}`, poolState.baseMint.toString());
       await bot.buy(updatedAccountInfo.accountId, poolState);
     }
   });
@@ -232,10 +251,28 @@ export const runListener = async () => {
       return;
     }
 
+    addTradeLog('info', `Wallet balance change detected: ${accountData.mint.toString()}`, accountData.mint.toString());
     await bot.sell(updatedAccountInfo.accountId, accountData);
   });
 
   printDetails(wallet, quoteToken, bot);
+  addTradeLog('info', '🚀 Bot is now actively monitoring for trading opportunities');
+  
+  // Add periodic heartbeat to show the bot is active
+  const heartbeatInterval = setInterval(() => {
+    addTradeLog('info', '💓 Bot heartbeat - actively monitoring blockchain...');
+  }, 30000); // Every 30 seconds
+
+  // Cleanup function
+  const cleanup = () => {
+    clearInterval(heartbeatInterval);
+    listeners.stop();
+    addTradeLog('info', '🛑 Bot monitoring stopped');
+  };
+
+  // Handle process termination
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
 };
 
 // Only run the bot directly if this file is executed directly (not imported)

@@ -10,7 +10,7 @@ import SignalFeed from "@/components/SignalFeed"
 import WhaleActivity from "@/components/WhaleActivity"
 import MarketAnalysis from "@/components/MarketAnalysis"
 import RiskManagement from "@/components/RiskManagement"
-import AIAnalysis from "@/components/AIAnalysis"
+import ExecuteTrades from "@/components/AIAnalysis"
 
 export default function Dashboard() {
   const [botRunning, setBotRunning] = useState(false)
@@ -174,7 +174,7 @@ export default function Dashboard() {
         </div>
 
         <div className="col-span-1">
-          <AIAnalysis />
+          <ExecuteTrades />
         </div>
       </div>
     </div>

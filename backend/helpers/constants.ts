@@ -35,7 +35,7 @@ export const CUSTOM_FEE = retrieveEnvVariable('CUSTOM_FEE', logger, false) || '0
 
 // Buy
 export const AUTO_BUY_DELAY = Number(retrieveEnvVariable('AUTO_BUY_DELAY', logger, false) || '1000');
-export const QUOTE_MINT = retrieveEnvVariable('QUOTE_MINT', logger, false) || 'So11111111111111111111111111111111111111112';
+export const QUOTE_MINT = retrieveEnvVariable('QUOTE_MINT', logger, false) || 'WSOL';
 export const QUOTE_AMOUNT = retrieveEnvVariable('QUOTE_AMOUNT', logger, false) || '0.01';
 export const MAX_BUY_RETRIES = Number(retrieveEnvVariable('MAX_BUY_RETRIES', logger, false) || '3');
 export const BUY_SLIPPAGE = Number(retrieveEnvVariable('BUY_SLIPPAGE', logger, false) || '10');

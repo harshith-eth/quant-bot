@@ -6,11 +6,25 @@ import { MemeScannerService } from './meme-scanner';
 import { WhaleTrackerService } from './whale-tracker';
 import bs58 from 'bs58';
 import dotenv from 'dotenv';
+import WebSocket from 'ws';
+import { createServer } from 'http';
 
 dotenv.config();
 
 const app = express();
+const server = createServer(app);
+const wss = new WebSocket.Server({ 
+  server,
+  perMessageDeflate: false // Disable compression for better compatibility
+});
 const PORT = 8000; // Backend runs on port 8000, frontend on 3000
+
+// WebSocket server error handling
+wss.on('error', (error) => {
+  console.error('❌ WebSocket Server Error:', error);
+});
+
+console.log('🔌 WebSocket server initialized');
 
 // Create RPC connection without requiring PRIVATE_KEY
 const RPC_ENDPOINT = process.env.RPC_ENDPOINT || 'https://api.mainnet-beta.solana.com';
@@ -56,7 +70,7 @@ console.log(`🎯 Commitment Level: ${COMMITMENT_LEVEL}`);
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:3000', // Allow frontend on port 3000
+  origin: ['http://localhost:3000', 'http://localhost:3001'], // Allow frontend on both ports
   credentials: true
 }));
 app.use(express.json());
@@ -74,6 +88,96 @@ let networkStatsCache = {
   lastBlockTime: new Date(),
   lastUpdated: new Date(),
 };
+
+// Trade logs storage
+interface TradeLog {
+  id: string;
+  timestamp: Date;
+  type: 'buy' | 'sell' | 'info' | 'error';
+  message: string;
+  mint?: string;
+  signature?: string;
+  url?: string;
+}
+
+let tradeLogs: TradeLog[] = [];
+const MAX_LOGS = 100;
+
+// WebSocket clients for trade logs
+const tradeLogClients = new Set<WebSocket>();
+
+// Function to broadcast trade logs to all connected clients
+function broadcastTradeLog(log: TradeLog) {
+  // Add to storage
+  tradeLogs.push(log);
+  if (tradeLogs.length > MAX_LOGS) {
+    tradeLogs = tradeLogs.slice(-MAX_LOGS);
+  }
+
+  // Broadcast to all connected clients
+  const message = JSON.stringify({ type: 'tradeLog', data: log });
+  const clientsToRemove: WebSocket[] = [];
+  
+  tradeLogClients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      try {
+        client.send(message);
+      } catch (error) {
+        console.error('Failed to send message to WebSocket client:', error);
+        clientsToRemove.push(client);
+      }
+    } else {
+      clientsToRemove.push(client);
+    }
+  });
+
+  // Clean up disconnected clients
+  clientsToRemove.forEach(client => {
+    tradeLogClients.delete(client);
+  });
+
+  console.log(`📡 Broadcasted trade log to ${tradeLogClients.size} clients: ${log.message}`);
+}
+
+// WebSocket connection handler
+wss.on('connection', (ws: WebSocket, req) => {
+  console.log(`🔌 New WebSocket client connected from ${req.socket.remoteAddress}`);
+  tradeLogClients.add(ws);
+
+  // Send existing logs to new client
+  try {
+    ws.send(JSON.stringify({ 
+      type: 'initialLogs', 
+      data: tradeLogs.slice(-50) // Send last 50 logs
+    }));
+    console.log(`📊 Sent ${tradeLogs.slice(-50).length} initial logs to new client`);
+  } catch (error) {
+    console.error('Failed to send initial logs to client:', error);
+  }
+
+  ws.on('close', (code, reason) => {
+    console.log(`🔌 WebSocket client disconnected - Code: ${code}, Reason: ${reason}`);
+    tradeLogClients.delete(ws);
+  });
+
+  ws.on('error', (error) => {
+    console.error('❌ WebSocket client error:', error);
+    tradeLogClients.delete(ws);
+  });
+
+  // Send a ping every 30 seconds to keep connection alive
+  const pingInterval = setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.ping();
+    } else {
+      clearInterval(pingInterval);
+    }
+  }, 30000);
+
+  ws.on('close', () => {
+    clearInterval(pingInterval);
+  });
+});
 
 // Function to fetch network statistics
 async function updateNetworkStats() {
@@ -122,6 +226,12 @@ setInterval(updateNetworkStats, 30000);
 // Initial update
 updateNetworkStats();
 
+// Add some sample trade logs for testing
+setTimeout(() => {
+  addTradeLog('info', '🤖 Trading bot initialized and ready');
+  addTradeLog('info', '🔍 Scanning for trading opportunities...');
+}, 2000);
+
 // API endpoint to get network statistics
 app.get('/api/network-stats', (req: Request, res: Response) => {
   const timeSinceLastBlock = Math.floor((Date.now() - networkStatsCache.lastBlockTime.getTime()) / 1000);
@@ -135,6 +245,16 @@ app.get('/api/network-stats', (req: Request, res: Response) => {
     timeSinceLastBlock: timeSinceLastBlock,
     systemActive: true,
     lastUpdated: networkStatsCache.lastUpdated,
+  });
+});
+
+// API endpoint to check WebSocket server health
+app.get('/api/websocket-health', (req: Request, res: Response) => {
+  res.json({
+    websocketServer: 'running',
+    connectedClients: tradeLogClients.size,
+    totalLogs: tradeLogs.length,
+    lastLogTime: tradeLogs.length > 0 ? tradeLogs[tradeLogs.length - 1].timestamp : null
   });
 });
 
@@ -163,12 +283,30 @@ app.post('/api/start', async (req: Request, res: Response) => {
     logger.info('Starting trading bot from frontend...');
     botRunning = true;
     
+    // Add start log
+    const startLog: TradeLog = {
+      id: `start-${Date.now()}`,
+      timestamp: new Date(),
+      type: 'info',
+      message: '🚀 Bot started successfully - Beginning trade execution...'
+    };
+    broadcastTradeLog(startLog);
+    
     // Start the bot process and handle errors
     botProcess = runListener().catch((error) => {
       console.error('Bot process failed:', error);
       logger.error('Bot process failed:', error);
       botRunning = false;
       botProcess = null;
+      
+      // Add error log
+      const errorLog: TradeLog = {
+        id: `error-${Date.now()}`,
+        timestamp: new Date(),
+        type: 'error',
+        message: `❌ Bot process failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+      broadcastTradeLog(errorLog);
     });
     
     res.json({ 
@@ -179,6 +317,16 @@ app.post('/api/start', async (req: Request, res: Response) => {
     botRunning = false;
     botProcess = null;
     console.error('Failed to start bot:', error);
+    
+    // Add error log
+    const errorLog: TradeLog = {
+      id: `error-${Date.now()}`,
+      timestamp: new Date(),
+      type: 'error',
+      message: `❌ Failed to start bot: ${error instanceof Error ? error.message : 'Unknown error'}`
+    };
+    broadcastTradeLog(errorLog);
+    
     res.status(500).json({ 
       success: false, 
       message: `Failed to start bot: ${error instanceof Error ? error.message : 'Unknown error'}` 
@@ -199,6 +347,15 @@ app.post('/api/stop', (req: Request, res: Response) => {
     console.log('Stopping trading bot from frontend...');
     botRunning = false;
     botProcess = null;
+    
+    // Add stop log
+    const stopLog: TradeLog = {
+      id: `stop-${Date.now()}`,
+      timestamp: new Date(),
+      type: 'info',
+      message: '⏹️ Bot stopped successfully'
+    };
+    broadcastTradeLog(stopLog);
     
     res.json({ 
       success: true, 
@@ -378,6 +535,57 @@ app.post('/api/trade', async (req: Request, res: Response) => {
     });
   }
 });
+
+// API endpoint to get trade logs
+app.get('/api/trade-logs', (req: Request, res: Response) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 50;
+    const logs = tradeLogs.slice(-limit);
+    res.json(logs);
+  } catch (error) {
+    console.error('Failed to get trade logs:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch trade logs' 
+    });
+  }
+});
+
+// API endpoint to clear trade logs
+app.delete('/api/trade-logs', (req: Request, res: Response) => {
+  try {
+    tradeLogs = [];
+    
+    // Broadcast clear event to all clients
+    const message = JSON.stringify({ type: 'clearLogs' });
+    tradeLogClients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    });
+    
+    res.json({ success: true, message: 'Trade logs cleared' });
+  } catch (error) {
+    console.error('Failed to clear trade logs:', error);
+    res.status(500).json({ 
+      error: 'Failed to clear trade logs' 
+    });
+  }
+});
+
+// Function to add trade log (can be called from bot logic)
+export function addTradeLog(type: 'buy' | 'sell' | 'info' | 'error', message: string, mint?: string, signature?: string) {
+  const log: TradeLog = {
+    id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    timestamp: new Date(),
+    type,
+    message,
+    mint,
+    signature,
+    url: signature ? `https://solscan.io/tx/${signature}` : undefined
+  };
+  
+  broadcastTradeLog(log);
+}
 
 // MEME SCANNER API ENDPOINTS
 // =========================
@@ -577,7 +785,7 @@ app.post('/api/whale-tracker/stop', (req: Request, res: Response) => {
 });
 
 // Start the server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log('\n🚀 SOLANA TRADING BOT BACKEND API');
   console.log('=================================');
   console.log(`🔗 Backend API: http://localhost:${PORT}`);
