@@ -103,6 +103,7 @@ export const CACHE_KEYS = {
   PORTFOLIO_DATA: 'portfolio_data_cache',
   POSITIONS_DATA: 'positions_data_cache',
   TOKEN_METADATA: 'token_metadata_cache',
+  RISK_MANAGEMENT_DATA: 'risk_management_data_cache',
 } as const;
 
 // Cache durations
@@ -110,4 +111,5 @@ export const CACHE_DURATIONS = {
   PORTFOLIO: 120000, // 2 minutes
   POSITIONS: 120000, // 2 minutes  
   TOKEN_METADATA: 300000, // 5 minutes (metadata changes less frequently)
+  RISK_MANAGEMENT: 180000, // 3 minutes (risk data changes moderately)
 } as const; 

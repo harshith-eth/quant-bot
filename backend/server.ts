@@ -314,6 +314,25 @@ app.get('/api/trades', async (req: Request, res: Response) => {
   }
 });
 
+// API endpoint to get risk management data
+app.get('/api/risk-management', async (req: Request, res: Response) => {
+  if (!portfolioService) {
+    return res.status(503).json({ 
+      error: 'Portfolio service not available. Please check wallet configuration.' 
+    });
+  }
+
+  try {
+    const riskData = await portfolioService.getRiskManagementData();
+    res.json(riskData);
+  } catch (error) {
+    console.error('Failed to get risk management data:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch risk management data' 
+    });
+  }
+});
+
 // API endpoint to get detailed wallet information (for debugging)
 app.get('/api/wallet-details', async (req: Request, res: Response) => {
   if (!portfolioService) {
