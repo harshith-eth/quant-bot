@@ -31,13 +31,40 @@
 - **📊 Live Monitoring**: Real-time portfolio tracking and trade analytics
 - **🔧 Enterprise Configuration**: Extensive customization options via environment variables
 
+## 📁 Project Structure
+
+```
+QuantBot v3.0/
+├── 📁 backend/              # Backend API server & trading bot
+│   ├── 📄 server.ts         # Express server with dashboard API
+│   ├── 📄 index.ts          # Main bot entry point
+│   ├── 📄 bot.ts            # Trading bot logic
+│   ├── 📄 cache.ts          # Caching mechanisms
+│   ├── 📁 transactions/     # Transaction executors
+│   ├── 📁 listeners/        # Market listeners
+│   ├── 📁 helpers/          # Utility functions
+│   ├── 📁 filters/          # Token filtering logic
+│   └── 📄 package.json      # Backend dependencies
+├── 📁 frontend/             # Next.js dashboard interface
+│   ├── 📁 app/              # Next.js app directory
+│   ├── 📁 components/       # React components
+│   ├── 📁 lib/              # Frontend utilities
+│   └── 📄 package.json      # Frontend dependencies
+├── 📄 .env                  # Environment configuration
+├── 📄 README.md             # This file
+├── 📄 LICENSE.md            # MIT license
+└── 📄 package.json          # Root monorepo scripts
+```
+
 ## 🏗️ Architecture
 
 ```mermaid
 graph TD
-    A["🚀 npm run bot"] --> B["QuantBot Server Start<br/>Port 3000"]
-    B --> C["📊 QuantBot Dashboard<br/>localhost:3000"]
-    C --> D["User Interface"]
+    A["🚀 npm run dev"] --> B["Frontend + Backend Start"]
+    B --> C["📊 Next.js Dashboard<br/>localhost:3000"]
+    B --> D["🔧 Express API Server<br/>localhost:3001"]
+    C --> E["User Interface"]
+    D --> F["Trading Bot API"]
     
     D --> E["Start Bot"]
     D --> F["Monitor Status"]
@@ -118,9 +145,9 @@ graph TD
    cd quantbot
    ```
 
-2. **Install Dependencies**
+2. **Install All Dependencies**
    ```bash
-   npm install
+   npm run install:all
    ```
 
 3. **Configure Environment**
@@ -133,12 +160,21 @@ graph TD
    - Convert SOL to USDC or WSOL on [Jupiter](https://jup.ag/)
    - Recommended: Use WSOL for better performance
 
-5. **Launch Dashboard**
+5. **Launch Full Application (Frontend + Backend)**
    ```bash
-   npm run bot
+   npm run dev
    ```
    
-   The dashboard will automatically open at `http://localhost:3000`
+   Or run components separately:
+   ```bash
+   # Backend only (API server)
+   npm run backend:dev
+   
+   # Frontend only (Next.js dashboard)
+   npm run frontend:dev
+   ```
+   
+   The dashboard will be available at `http://localhost:3000`
 
 ## ⚙️ Configuration
 
