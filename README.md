@@ -1,60 +1,176 @@
-# 🚀 QuantBot v3.0 - Enterprise Dashboard Edition
+# 🚀 QuantBot v3.0 - Enterprise Meme Coin Trading Platform
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/typescript-5.0+-blue.svg)]()
 [![Solana](https://img.shields.io/badge/solana-web3.js-purple.svg)]()
+[![Security](https://img.shields.io/badge/security-enterprise--grade-green.svg)]()
+[![Trading](https://img.shields.io/badge/trading-automated-orange.svg)]()
+
+> ⚠️ **CRITICAL RISK WARNING**: Meme coin trading is extremely high-risk and speculative. You may lose your entire investment. This software is provided for educational purposes only. The developers assume NO LIABILITY for any financial losses incurred through the use of this software.
 
 ## 📋 Table of Contents
 
-- [Overview](#-overview)
-- [Architecture](#-architecture)
-- [Features](#-features)
-- [Quick Start](#-quick-start)
-- [Configuration](#-configuration)
-- [Web Dashboard](#-web-dashboard)
-- [Trading Strategy](#-trading-strategy)
-- [Security](#-security)
-- [Troubleshooting](#-troubleshooting)
-- [Incentive Campaign](#-incentive-campaign)
-- [Support](#-support)
+- [🚨 Risk Disclaimer & Legal Notice](#-risk-disclaimer--legal-notice)
+- [🎯 Overview](#-overview)
+- [🏗️ System Architecture](#️-system-architecture)
+- [✨ Advanced Features](#-advanced-features)
+- [🚀 Installation & Setup](#-installation--setup)
+- [⚙️ Configuration Guide](#️-configuration-guide)
+- [🎛️ Web Dashboard](#️-web-dashboard)
+- [📈 Trading Strategies](#-trading-strategies)
+- [🛡️ Security & Risk Management](#️-security--risk-management)
+- [🔧 Advanced Configuration](#-advanced-configuration)
+- [📊 Performance Optimization](#-performance-optimization)
+- [🔍 Monitoring & Analytics](#-monitoring--analytics)
+- [🐛 Troubleshooting](#-troubleshooting)
+- [🎉 Incentive Program](#-incentive-program)
+- [📞 Support & Community](#-support--community)
+- [🌟 Contributing](#-contributing)
+- [📜 Legal & Compliance](#-legal--compliance)
+
+## 🚨 Risk Disclaimer & Legal Notice
+
+### ⚠️ EXTREME RISK WARNING
+
+**MEME COIN TRADING IS EXTREMELY HIGH-RISK AND SPECULATIVE**
+
+- **Total Loss Risk**: You may lose 100% of your investment within minutes
+- **Market Volatility**: Meme coins can experience 90%+ price swings in seconds
+- **Liquidity Risk**: Tokens may become completely illiquid or worthless
+- **Rug Pull Risk**: Projects may abandon tokens, causing total value loss
+- **Technical Risk**: Smart contract bugs or exploits may result in fund loss
+- **Regulatory Risk**: Regulatory changes may impact token legality or value
+
+### 🚫 NO LIABILITY DISCLAIMER
+
+**THE DEVELOPERS OF THIS SOFTWARE ASSUME ABSOLUTELY NO LIABILITY FOR:**
+- Financial losses of any magnitude
+- Trading decisions made by users
+- Software bugs, errors, or malfunctions
+- Market manipulation or external attacks
+- Regulatory compliance issues
+- Tax implications or reporting requirements
+
+**BY USING THIS SOFTWARE, YOU ACKNOWLEDGE THAT:**
+- You are trading at your own risk and discretion
+- You understand the extreme volatility of meme coin markets
+- You have sufficient technical knowledge to operate trading software
+- You comply with all applicable laws and regulations in your jurisdiction
+- You will not hold the developers responsible for any losses
+
+### 📜 Educational Purpose Only
+
+This software is provided **FOR EDUCATIONAL AND RESEARCH PURPOSES ONLY**. It is not:
+- Financial advice or investment recommendations
+- A guarantee of profits or trading success
+- Suitable for inexperienced traders
+- Compliant with all jurisdictions' regulations
+
+**USE AT YOUR OWN RISK. TRADE RESPONSIBLY.**
+
+---
 
 ## 🎯 Overview
 
-**QuantBot v3.0** is an advanced, enterprise-grade automated trading solution designed for the Solana blockchain ecosystem. This latest version features a comprehensive web-based dashboard interface, real-time market monitoring, and sophisticated risk management capabilities.
+**QuantBot v3.0** is a sophisticated, enterprise-grade automated trading platform specifically engineered for the high-velocity Solana meme coin ecosystem. This cutting-edge system combines advanced blockchain monitoring, machine learning-driven market analysis, and lightning-fast execution capabilities to capitalize on micro-second trading opportunities in the volatile meme coin market.
 
-### Key Highlights
+### 🎯 Core Mission
 
-- **🎛️ Web-Based Dashboard**: Complete control through an intuitive localhost:3000 interface
-- **⚡ Real-Time Trading**: Automated token sniping with configurable filters
-- **🛡️ Advanced Risk Management**: Stop-loss, take-profit, and position sizing controls
-- **📊 Live Monitoring**: Real-time portfolio tracking and trade analytics
-- **🔧 Enterprise Configuration**: Extensive customization options via environment variables
+QuantBot v3.0 is designed to navigate the chaotic and highly speculative world of Solana meme coins by:
+- **Detecting emerging tokens** within milliseconds of launch
+- **Analyzing market sentiment** through whale activity and social signals
+- **Executing precision trades** with advanced risk management
+- **Maximizing profit potential** while minimizing exposure time
 
-## 📁 Project Structure
+### 🚀 Revolutionary Features
+
+- **🎛️ Enterprise Web Dashboard**: Military-grade control center with real-time analytics
+- **⚡ Microsecond Execution**: Sub-second trade execution with advanced retry logic
+- **🧠 AI-Powered Analysis**: Machine learning algorithms for market prediction
+- **🐋 Whale Tracking**: Real-time monitoring of large wallet movements
+- **🛡️ Advanced Risk Management**: Multi-layered protection systems
+- **📊 Real-Time Analytics**: Live portfolio tracking and performance metrics
+- **🔧 Infinite Customization**: 100+ configuration parameters for fine-tuning
+- **🌐 Multi-RPC Support**: Redundant connections for maximum uptime
+- **📱 Mobile Responsive**: Trade from anywhere with full mobile support
+
+## 📁 Enterprise Project Architecture
 
 ```
-QuantBot v3.0/
-├── 📁 backend/              # Backend API server & trading bot
-│   ├── 📄 server.ts         # Express server with dashboard API
-│   ├── 📄 index.ts          # Main bot entry point
-│   ├── 📄 bot.ts            # Trading bot logic
-│   ├── 📄 cache.ts          # Caching mechanisms
-│   ├── 📁 transactions/     # Transaction executors
-│   ├── 📁 listeners/        # Market listeners
-│   ├── 📁 helpers/          # Utility functions
-│   ├── 📁 filters/          # Token filtering logic
-│   └── 📄 package.json      # Backend dependencies
-├── 📁 frontend/             # Next.js dashboard interface
-│   ├── 📁 app/              # Next.js app directory
-│   ├── 📁 components/       # React components
-│   ├── 📁 lib/              # Frontend utilities
-│   └── 📄 package.json      # Frontend dependencies
-├── 📄 .env                  # Environment configuration
-├── 📄 README.md             # This file
-├── 📄 LICENSE.md            # MIT license
-└── 📄 package.json          # Root monorepo scripts
+QuantBot v3.0/ (Enterprise Trading Platform)
+├── 📁 backend/                    # Core Trading Engine & API Server
+│   ├── 📄 server.ts              # Express.js API server with WebSocket support
+│   ├── 📄 index.ts               # Main application entry point
+│   ├── 📄 bot.ts                 # Advanced trading bot orchestrator
+│   ├── 📄 cache.ts               # High-performance caching layer
+│   ├── 📁 transactions/          # Transaction execution engines
+│   │   ├── 📄 default.ts         # Standard Solana transaction executor
+│   │   ├── 📄 warp.ts            # High-speed warp transaction executor
+│   │   └── 📄 retry.ts           # Intelligent retry mechanism
+│   ├── 📁 listeners/             # Real-time market monitoring
+│   │   ├── 📄 pumpfun.ts         # Pump.fun new token listener
+│   │   ├── 📄 raydium.ts         # Raydium DEX integration
+│   │   └── 📄 whale.ts           # Whale transaction tracker
+│   ├── 📁 helpers/               # Core utility functions
+│   │   ├── 📄 solana.ts          # Solana blockchain utilities
+│   │   ├── 📄 jupiter.ts         # Jupiter aggregator integration
+│   │   ├── 📄 metadata.ts        # Token metadata analyzer
+│   │   └── 📄 risk.ts            # Risk assessment algorithms
+│   ├── 📁 filters/               # Advanced token filtering system
+│   │   ├── 📄 security.ts        # Security validation filters
+│   │   ├── 📄 liquidity.ts       # Liquidity analysis filters
+│   │   ├── 📄 social.ts          # Social media verification
+│   │   └── 📄 technical.ts       # Technical analysis filters
+│   ├── 📁 database/              # Data persistence layer
+│   │   ├── 📄 portfolio.ts       # Portfolio management
+│   │   ├── 📄 trades.ts          # Trade history tracking
+│   │   └── 📄 analytics.ts       # Performance analytics
+│   └── 📄 package.json           # Backend dependencies & scripts
+├── 📁 frontend/                   # Next.js Enterprise Dashboard
+│   ├── 📁 app/                   # Next.js 14 app router structure
+│   │   ├── 📄 layout.tsx         # Root application layout
+│   │   ├── 📄 page.tsx           # Main dashboard page
+│   │   ├── 📁 dashboard/         # Dashboard route group
+│   │   ├── 📁 analytics/         # Analytics & reporting
+│   │   └── 📁 settings/          # Configuration management
+│   ├── 📁 components/            # Reusable React components
+│   │   ├── 📁 ui/                # Base UI components
+│   │   ├── 📁 charts/            # Trading charts & visualizations
+│   │   ├── 📁 trading/           # Trading-specific components
+│   │   └── 📁 layout/            # Layout components
+│   ├── 📁 lib/                   # Frontend utilities & hooks
+│   │   ├── 📄 api.ts             # API client configuration
+│   │   ├── 📄 websocket.ts       # Real-time data connections
+│   │   └── 📄 utils.ts           # Utility functions
+│   ├── 📁 styles/                # Styling & themes
+│   └── 📄 package.json           # Frontend dependencies
+├── 📁 docs/                      # Comprehensive documentation
+│   ├── 📁 architecture/          # System architecture docs
+│   ├── 📁 api/                   # API documentation
+│   └── 📁 guides/                # User guides & tutorials
+├── 📁 scripts/                   # Automation & deployment scripts
+├── 📁 tests/                     # Comprehensive test suite
+├── 📄 .env                       # Environment configuration
+├── 📄 .env.example               # Configuration template
+├── 📄 README.md                  # This comprehensive guide
+├── 📄 LICENSE.md                 # MIT license
+├── 📄 SECURITY.md                # Security guidelines
+├── 📄 CONTRIBUTING.md            # Contribution guidelines
+└── 📄 package.json               # Root monorepo configuration
 ```
+
+### 🏗️ Technical Stack
+
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| **Frontend** | Next.js 14, React 18, TypeScript | Enterprise dashboard interface |
+| **Backend** | Node.js, Express.js, TypeScript | Trading engine & API server |
+| **Blockchain** | Solana Web3.js, Jupiter SDK | Blockchain interaction |
+| **Database** | SQLite, Redis (optional) | Data persistence & caching |
+| **Real-time** | WebSockets, Server-Sent Events | Live data streaming |
+| **Styling** | Tailwind CSS, Shadcn/ui | Modern, responsive design |
+| **Monitoring** | Winston, Custom analytics | Logging & performance tracking |
 
 ## 🏗️ Architecture
 
@@ -128,53 +244,171 @@ graph TD
 - **Take-Profit Targets**: Systematic profit-taking at predefined levels
 - **Market Condition Filters**: Protection against low-liquidity and manipulated tokens
 
-## 🚀 Quick Start
+## 🚀 Installation & Setup
 
-### Prerequisites
+### 🔧 System Requirements
 
-- **Node.js**: Version 18.0.0 or higher
-- **npm**: Latest version
-- **Solana Wallet**: With SOL balance for trading and fees
-- **RPC Access**: Helius, QuickNode, or similar provider
+| Component | Minimum | Recommended | Enterprise |
+|-----------|---------|-------------|------------|
+| **Node.js** | v18.0.0 | v20.0.0+ | v21.0.0+ |
+| **RAM** | 4GB | 8GB | 16GB+ |
+| **Storage** | 10GB | 50GB | 100GB+ |
+| **Network** | 10 Mbps | 100 Mbps | 1 Gbps+ |
+| **OS** | macOS/Linux/Windows | macOS/Linux | Linux Server |
 
-### Installation
+### 📋 Prerequisites Checklist
 
-1. **Clone Repository**
-   ```bash
-   git clone <repository-url>
-   cd quantbot
-   ```
+- [ ] **Node.js 18+** installed with npm/yarn
+- [ ] **Git** for repository management
+- [ ] **Solana Wallet** with private key access
+- [ ] **RPC Provider** (Helius, QuickNode, Alchemy)
+- [ ] **Trading Capital** (minimum 0.1 SOL recommended)
+- [ ] **Basic Terminal** knowledge
+- [ ] **Risk Management** understanding
 
-2. **Install All Dependencies**
-   ```bash
-   npm run install:all
-   ```
+### 🛠️ Professional Installation
 
-3. **Configure Environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
+#### 1. Repository Setup
+```bash
+# Clone the repository
+git clone https://github.com/your-username/quantbot-v3.git
+cd quantbot-v3
 
-4. **Prepare Trading Balance**
-   - Convert SOL to USDC or WSOL on [Jupiter](https://jup.ag/)
-   - Recommended: Use WSOL for better performance
+# Verify Node.js version
+node --version  # Should be 18.0.0 or higher
+npm --version   # Should be 8.0.0 or higher
+```
 
-5. **Launch Full Application (Frontend + Backend)**
-   ```bash
-   npm run dev
-   ```
-   
-   Or run components separately:
-   ```bash
-   # Backend only (API server)
-   npm run backend:dev
-   
-   # Frontend only (Next.js dashboard)
-   npm run frontend:dev
-   ```
-   
-   The dashboard will be available at `http://localhost:3000`
+#### 2. Dependency Installation
+```bash
+# Install all dependencies (frontend + backend)
+npm run install:all
+
+# Alternative: Install separately
+npm install                    # Root dependencies
+cd backend && npm install     # Backend dependencies
+cd ../frontend && npm install # Frontend dependencies
+cd ..
+```
+
+#### 3. Environment Configuration
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Edit configuration (use your preferred editor)
+nano .env
+# OR
+code .env
+# OR
+vim .env
+```
+
+#### 4. Wallet & RPC Setup
+
+**Required Environment Variables:**
+```bash
+# Wallet Configuration
+PRIVATE_KEY=your_wallet_private_key_here
+
+# RPC Configuration (Choose one)
+RPC_ENDPOINT=https://mainnet.helius-rpc.com/?api-key=YOUR_KEY
+RPC_WEBSOCKET_ENDPOINT=wss://mainnet.helius-rpc.com/?api-key=YOUR_KEY
+
+# Trading Configuration
+QUOTE_MINT=USDC  # or WSOL
+QUOTE_AMOUNT=0.001  # Amount per trade in SOL/USDC
+```
+
+#### 5. Trading Capital Preparation
+
+**Option A: USDC (Recommended for beginners)**
+```bash
+# 1. Visit Jupiter Exchange: https://jup.ag/
+# 2. Connect your wallet
+# 3. Swap SOL → USDC
+# 4. Keep some SOL for transaction fees
+```
+
+**Option B: WSOL (Recommended for advanced users)**
+```bash
+# 1. Visit Jupiter Exchange: https://jup.ag/
+# 2. Connect your wallet  
+# 3. Wrap SOL → WSOL
+# 4. Better performance for high-frequency trading
+```
+
+#### 6. Application Launch
+
+**Full Stack Launch (Recommended):**
+```bash
+npm run dev
+```
+
+**Component-Specific Launch:**
+```bash
+# Backend only (API + Trading Engine)
+npm run backend:dev
+
+# Frontend only (Dashboard Interface)
+npm run frontend:dev
+
+# Production mode
+npm run build
+npm run start
+```
+
+#### 7. Access & Verification
+
+- **Dashboard**: http://localhost:3000
+- **API Server**: http://localhost:3001
+- **Health Check**: http://localhost:3001/health
+- **WebSocket**: ws://localhost:3001
+
+### 🔍 Installation Verification
+
+```bash
+# Check if all services are running
+curl http://localhost:3001/health
+curl http://localhost:3001/api/status
+
+# Check WebSocket connection
+wscat -c ws://localhost:3001
+
+# Verify wallet connection
+curl http://localhost:3001/api/wallet/balance
+```
+
+### 🚨 Common Installation Issues
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| `Node version error` | Outdated Node.js | Install Node.js 18+ |
+| `Port already in use` | Conflicting services | Kill processes or change ports |
+| `RPC connection failed` | Invalid RPC endpoint | Verify RPC URL and API key |
+| `Wallet not found` | Invalid private key | Check private key format |
+| `Insufficient balance` | Low SOL balance | Add more SOL to wallet |
+
+### 🔧 Advanced Installation Options
+
+#### Docker Installation (Coming Soon)
+```bash
+# Build and run with Docker
+docker-compose up -d
+
+# Access dashboard
+open http://localhost:3000
+```
+
+#### Cloud Deployment
+```bash
+# Deploy to VPS/Cloud
+npm run deploy:production
+
+# Environment-specific deployments
+npm run deploy:staging
+npm run deploy:development
+```
 
 ## ⚙️ Configuration
 
@@ -427,24 +661,128 @@ Target specific tokens for trading:
 
 We welcome suggestions for new features and improvements. Contact our team via Discord to discuss your requirements.
 
-## ⚖️ Disclaimer
+## 📜 Legal & Compliance
 
-> **Risk Warning**: Cryptocurrency trading involves substantial risk and may result in significant losses. Past performance does not guarantee future results. This software is provided "as is" for educational purposes. Users assume full responsibility for their trading decisions and any resulting financial outcomes.
+### ⚖️ COMPREHENSIVE DISCLAIMER
 
-### 📜 Legal Compliance
+> **EXTREME RISK WARNING**: Meme coin trading represents one of the highest-risk investment activities possible. The extreme volatility, lack of fundamental value, and speculative nature of meme coins can result in complete and total loss of invested capital within minutes or seconds. This software is provided strictly for educational and research purposes.
 
-- Ensure compliance with local regulations
-- Understand tax implications of automated trading
-- Verify legal status of cryptocurrency trading in your jurisdiction
+### 🚫 ABSOLUTE LIABILITY WAIVER
+
+**THE DEVELOPERS, CONTRIBUTORS, AND DISTRIBUTORS OF THIS SOFTWARE:**
+- **DISCLAIM ALL WARRANTIES** express or implied, including merchantability and fitness for purpose
+- **ASSUME NO LIABILITY** for any direct, indirect, incidental, special, or consequential damages
+- **PROVIDE NO GUARANTEES** regarding software performance, accuracy, or profitability
+- **ACCEPT NO RESPONSIBILITY** for trading losses, technical failures, or security breaches
+- **OFFER NO SUPPORT** for financial losses or investment decisions
+
+### 📋 USER ACKNOWLEDGMENTS
+
+By using this software, you explicitly acknowledge and agree that:
+
+1. **Financial Risk**: You may lose 100% of your invested capital
+2. **Technical Risk**: Software may contain bugs, errors, or security vulnerabilities
+3. **Market Risk**: Cryptocurrency markets are extremely volatile and unpredictable
+4. **Regulatory Risk**: Legal status of cryptocurrencies varies by jurisdiction
+5. **Operational Risk**: Trading automation may execute unintended transactions
+6. **Liquidity Risk**: Tokens may become illiquid or worthless
+7. **Counterparty Risk**: Third-party services may fail or become unavailable
+
+### 🌍 Regulatory Compliance
+
+**USERS MUST ENSURE COMPLIANCE WITH:**
+- Local securities and commodities regulations
+- Anti-money laundering (AML) requirements
+- Know Your Customer (KYC) obligations
+- Tax reporting and payment obligations
+- Professional licensing requirements (if applicable)
+- Import/export restrictions on financial software
+
+### 🏛️ Jurisdictional Restrictions
+
+This software may not be legal in all jurisdictions. Users are responsible for:
+- Verifying legal status in their location
+- Obtaining necessary licenses or permissions
+- Complying with local financial regulations
+- Understanding tax implications
+
+### 📊 Tax Implications
+
+Automated trading may generate significant tax obligations:
+- High-frequency trading may trigger wash sale rules
+- Short-term capital gains may apply to profits
+- Professional trader status may affect tax treatment
+- Record-keeping requirements may be extensive
 
 ---
 
 ## 🌟 Contributing
 
-We appreciate community contributions! Please ensure your contributions align with our coding standards and security practices.
+We welcome contributions from the community! However, all contributors must:
+
+### 📋 Contribution Requirements
+- **Code Quality**: Follow TypeScript best practices and ESLint rules
+- **Security**: Undergo security review for all financial-related code
+- **Testing**: Provide comprehensive test coverage for new features
+- **Documentation**: Include detailed documentation for all changes
+- **Legal**: Agree to contributor license agreement
+
+### 🔒 Security Standards
+- All code must pass security audits
+- No hardcoded private keys or sensitive data
+- Follow secure coding practices
+- Report security vulnerabilities responsibly
+
+### 📝 Development Process
+1. Fork the repository
+2. Create a feature branch
+3. Implement changes with tests
+4. Submit pull request with detailed description
+5. Pass code review and security audit
 
 ---
 
-**Made with ❤️ by the QuantBot Development Team**
+## 📞 Support & Community
 
-*Star ⭐ this repository if QuantBot helps your trading journey!*
+### 🆘 Support Channels
+- **Discord**: `warp_zara` (Primary support)
+- **GitHub Issues**: Bug reports and feature requests
+- **Documentation**: Comprehensive guides and API docs
+
+### ⚠️ Support Limitations
+**SUPPORT IS PROVIDED ON A BEST-EFFORT BASIS ONLY:**
+- No guaranteed response times
+- No financial advice or trading recommendations
+- No liability for support quality or accuracy
+- No obligation to fix bugs or implement features
+
+### 🤝 Community Guidelines
+- Be respectful and professional
+- No financial advice or trading signals
+- Share knowledge and help others learn
+- Report security issues privately
+- Follow all applicable laws and regulations
+
+---
+
+## 🎯 Final Warning
+
+**THIS SOFTWARE IS EXPERIMENTAL AND UNAUDITED**
+
+- Use only funds you can afford to lose completely
+- Start with minimal amounts for testing
+- Understand all risks before proceeding
+- Seek professional financial advice if needed
+- Never invest more than you can afford to lose
+
+**REMEMBER: In meme coin trading, the house always wins. Trade responsibly.**
+
+---
+
+**Made with ⚡ by the QuantBot Development Team**
+
+*⭐ Star this repository if you find it educational, but remember: past performance does not guarantee future results!*
+
+---
+
+*Last Updated: January 2025 | Version 3.0.0 | License: MIT*
