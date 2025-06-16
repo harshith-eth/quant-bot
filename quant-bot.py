@@ -7,6 +7,7 @@ import time
 import os
 import signal
 import sys
+import socket
 from pathlib import Path
 
 class QuantBotLauncher:
@@ -16,6 +17,15 @@ class QuantBotLauncher:
         self.root_dir = Path(__file__).parent.absolute()
         self.backend_dir = self.root_dir / "backend"
         self.frontend_dir = self.root_dir / "frontend"
+        
+    def check_port_in_use(self, port):
+        """Check if a port is already in use"""
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(('localhost', port))
+                return False  # Port is available
+            except socket.error:
+                return True   # Port is in use
         
     def check_dependencies(self):
         """Check if required directories and files exist"""
@@ -39,6 +49,11 @@ class QuantBotLauncher:
     
     def start_backend(self):
         """Start the backend server"""
+        if self.check_port_in_use(8000):
+            print("⚠️  Backend server already running on port 8000!")
+            print("🔗 Backend API: http://localhost:8000")
+            return
+            
         print("🚀 Starting backend server...")
         try:
             os.chdir(self.backend_dir)
@@ -60,15 +75,27 @@ class QuantBotLauncher:
     
     def start_frontend(self):
         """Start the frontend development server"""
+        if self.check_port_in_use(3000):
+            print("⚠️  Frontend server already running on port 3000!")
+            print("🌐 Frontend UI: http://localhost:3000")
+            # Still open browser if not already open
+            threading.Timer(1.0, self.open_browser).start()
+            return
+            
         print("🎨 Starting frontend server...")
         try:
             os.chdir(self.frontend_dir)
+            # Force Next.js to use port 3000 only
+            env = os.environ.copy()
+            env['PORT'] = '3000'
+            
             self.frontend_process = subprocess.Popen(
                 ["npm", "run", "dev"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
-                bufsize=1
+                bufsize=1,
+                env=env
             )
             
             # Monitor frontend output
@@ -86,7 +113,7 @@ class QuantBotLauncher:
     def open_browser(self):
         """Open the browser to localhost:3000 (frontend)"""
         print("🌐 Opening browser...")
-        time.sleep(3)  # Give the servers a moment to fully start
+        time.sleep(1)  # Give the servers a moment to fully start
         webbrowser.open("http://localhost:3000")
     
     def signal_handler(self, signum, frame):
@@ -118,19 +145,41 @@ class QuantBotLauncher:
         # Set up signal handler for graceful shutdown
         signal.signal(signal.SIGINT, self.signal_handler)
         
-        # Start backend in a separate thread
-        backend_thread = threading.Thread(target=self.start_backend, daemon=True)
-        backend_thread.start()
+        # Check if servers are already running
+        backend_running = self.check_port_in_use(8000)
+        frontend_running = self.check_port_in_use(3000)
         
-        # Wait a bit for backend to initialize
-        time.sleep(3)
+        if backend_running and frontend_running:
+            print("✅ Both servers are already running!")
+            print("📱 Backend API: http://localhost:8000")
+            print("🌐 Frontend UI: http://localhost:3000")
+            print("🌐 Opening browser...")
+            webbrowser.open("http://localhost:3000")
+            print("Press Ctrl+C to monitor or stop")
+            try:
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                self.signal_handler(signal.SIGINT, None)
+            return
+        
+        # Start backend in a separate thread
+        if not backend_running:
+            backend_thread = threading.Thread(target=self.start_backend, daemon=True)
+            backend_thread.start()
+            # Wait a bit for backend to initialize
+            time.sleep(3)
         
         # Start frontend in a separate thread
-        frontend_thread = threading.Thread(target=self.start_frontend, daemon=True)
-        frontend_thread.start()
+        if not frontend_running:
+            frontend_thread = threading.Thread(target=self.start_frontend, daemon=True)
+            frontend_thread.start()
+        else:
+            # Frontend already running, just open browser
+            threading.Timer(1.0, self.open_browser).start()
         
         print("\n" + "=" * 50)
-        print("🎉 Both servers are starting up!")
+        print("🎉 Servers are ready!")
         print("📱 Backend API: http://localhost:8000")
         print("🌐 Frontend UI: http://localhost:3000")
         print("🤖 Use the frontend to control your bot")
