@@ -108,11 +108,43 @@ export class Bot {
 
   async validate() {
     try {
+      logger.info(`🔍 Validating bot configuration...`);
+      logger.info(`Quote token symbol: "${this.config.quoteToken.symbol}"`);
+      logger.info(`Quote token mint: ${this.config.quoteToken.mint.toString()}`);
+      logger.info(`Quote amount: ${this.config.quoteAmount.toFixed()}`);
+      
+      // For WSOL (Wrapped SOL), check if we have SOL balance instead of WSOL ATA
+      // Check both symbol and mint address for WSOL
+      const isWSol = this.config.quoteToken.symbol === 'WSOL' || 
+                    this.config.quoteToken.mint.toString() === 'So11111111111111111111111111111111111111112';
+      
+      if (isWSol) {
+        logger.info(`🔍 Detected WSOL token, checking SOL balance...`);
+        const balance = await this.connection.getBalance(this.config.wallet.publicKey);
+        const requiredLamports = this.config.quoteAmount.raw.toNumber();
+        
+        logger.info(`SOL balance: ${balance / 1e9} SOL (${balance} lamports)`);
+        logger.info(`Required: ${requiredLamports / 1e9} SOL (${requiredLamports} lamports)`);
+        
+        if (balance < requiredLamports) {
+          logger.error(
+            `Insufficient SOL balance. Required: ${requiredLamports / 1e9} SOL, Available: ${balance / 1e9} SOL`,
+          );
+          return false;
+        }
+        logger.info(`✅ SOL balance validation passed: ${balance / 1e9} SOL available`);
+        return true;
+      }
+      
+      // For other tokens, check the ATA exists
+      logger.info(`🔍 Checking token account for ${this.config.quoteToken.symbol}...`);
       await getAccount(this.connection, this.config.quoteAta, this.connection.commitment);
+      logger.info(`✅ ${this.config.quoteToken.symbol} token account validation passed`);
     } catch (error) {
       logger.error(
-        `${this.config.quoteToken.symbol} token account not found in wallet: ${this.config.wallet.publicKey.toString()}`,
+        `❌ ${this.config.quoteToken.symbol} token account not found in wallet: ${this.config.wallet.publicKey.toString()}`,
       );
+      logger.error(`Validation error:`, error);
       return false;
     }
 
@@ -123,32 +155,7 @@ export class Bot {
     const tradeLogger = await getTradeLogger();
     
     logger.trace({ mint: poolState.baseMint }, `Processing new pool...`);
-    tradeLogger('info', `Processing new pool: ${poolState.baseMint.toString()}`, poolState.baseMint.toString());
-
-    if (this.config.useSnipeList && !this.snipeListCache?.isInList(poolState.baseMint.toString())) {
-      logger.debug({ mint: poolState.baseMint.toString() }, `Skipping buy because token is not in a snipe list`);
-      tradeLogger('info', `Skipping buy - token not in snipe list`, poolState.baseMint.toString());
-      return;
-    }
-
-    if (this.config.autoBuyDelay > 0) {
-      logger.debug({ mint: poolState.baseMint }, `Waiting for ${this.config.autoBuyDelay} ms before buy`);
-      tradeLogger('info', `Waiting ${this.config.autoBuyDelay}ms before buy`, poolState.baseMint.toString());
-      await sleep(this.config.autoBuyDelay);
-    }
-
-    if (this.config.oneTokenAtATime) {
-      if (this.mutex.isLocked() || this.sellExecutionCount > 0) {
-        logger.debug(
-          { mint: poolState.baseMint.toString() },
-          `Skipping buy because one token at a time is turned on and token is already being processed`,
-        );
-        tradeLogger('info', `Skipping buy - one token at a time mode active`, poolState.baseMint.toString());
-        return;
-      }
-
-      await this.mutex.acquire();
-    }
+    tradeLogger('info', `🚀 ULTRA AGGRESSIVE MODE: Processing new pool: ${poolState.baseMint.toString()}`, poolState.baseMint.toString());
 
     try {
       const [market, mintAta] = await Promise.all([
@@ -164,23 +171,15 @@ export class Bot {
 
       const poolKeys: LiquidityPoolKeysV4 = createPoolKeys(accountId, poolState, market);
 
-      if (!this.config.useSnipeList) {
-        const match = await this.filterMatch(poolKeys);
-
-        if (!match) {
-          logger.trace({ mint: poolKeys.baseMint.toString() }, `Skipping buy because pool doesn't match filters`);
-          tradeLogger('info', `Skipping buy - pool doesn't match filters`, poolKeys.baseMint.toString());
-          return;
-        }
-      }
+      tradeLogger('info', `🔥 BYPASSING ALL FILTERS - TRADING IMMEDIATELY!`, poolState.baseMint.toString());
 
       for (let i = 0; i < this.config.maxBuyRetries; i++) {
         try {
           logger.info(
             { mint: poolState.baseMint.toString() },
-            `Send buy transaction attempt: ${i + 1}/${this.config.maxBuyRetries}`,
+            `🚀 ULTRA AGGRESSIVE BUY attempt: ${i + 1}/${this.config.maxBuyRetries}`,
           );
-          tradeLogger('buy', `Buy attempt ${i + 1}/${this.config.maxBuyRetries}`, poolState.baseMint.toString());
+          tradeLogger('buy', `🚀 ULTRA AGGRESSIVE BUY attempt ${i + 1}/${this.config.maxBuyRetries}`, poolState.baseMint.toString());
           
           const tokenOut = new Token(TOKEN_PROGRAM_ID, poolKeys.baseMint, poolKeys.baseDecimals);
           const result = await this.swap(
@@ -202,9 +201,23 @@ export class Bot {
                 signature: result.signature,
                 url: `https://solscan.io/tx/${result.signature}?cluster=${NETWORK}`,
               },
-              `Confirmed buy tx`,
+              `✅ ULTRA AGGRESSIVE BUY CONFIRMED!`,
             );
-            tradeLogger('buy', `✅ Buy confirmed - ${this.config.quoteAmount.toFixed()} ${this.config.quoteToken.symbol}`, poolState.baseMint.toString(), result.signature);
+            tradeLogger('buy', `✅ ULTRA AGGRESSIVE BUY CONFIRMED! - ${this.config.quoteAmount.toFixed()} ${this.config.quoteToken.symbol}`, poolState.baseMint.toString(), result.signature);
+            
+            // 🔥 STORE POOL DATA FOR FUTURE SELLING
+            try {
+              await this.poolStorage.save(poolState.baseMint.toString(), {
+                accountId: accountId.toString(),
+                state: poolState,
+              });
+              logger.info({ mint: poolState.baseMint.toString() }, `✅ Pool data stored for future selling`);
+              tradeLogger('info', `✅ Pool data stored for future selling`, poolState.baseMint.toString());
+            } catch (error) {
+              logger.error({ mint: poolState.baseMint.toString(), error }, `Failed to store pool data`);
+              tradeLogger('error', `Failed to store pool data: ${error instanceof Error ? error.message : 'Unknown error'}`, poolState.baseMint.toString());
+            }
+            
             break;
           }
 
@@ -225,23 +238,15 @@ export class Bot {
     } catch (error) {
       logger.error({ mint: poolState.baseMint.toString(), error }, `Failed to buy token`);
       tradeLogger('error', `Failed to buy token: ${error instanceof Error ? error.message : 'Unknown error'}`, poolState.baseMint.toString());
-    } finally {
-      if (this.config.oneTokenAtATime) {
-        this.mutex.release();
-      }
     }
   }
 
   public async sell(accountId: PublicKey, rawAccount: RawAccount) {
     const tradeLogger = await getTradeLogger();
     
-    if (this.config.oneTokenAtATime) {
-      this.sellExecutionCount++;
-    }
-
     try {
       logger.trace({ mint: rawAccount.mint }, `Processing new token...`);
-      tradeLogger('info', `Processing sell for token`, rawAccount.mint.toString());
+      tradeLogger('info', `🚀 ULTRA AGGRESSIVE SELL: Processing token`, rawAccount.mint.toString());
 
       const poolData = await this.poolStorage.get(rawAccount.mint.toString());
 
@@ -260,11 +265,7 @@ export class Bot {
         return;
       }
 
-      if (this.config.autoSellDelay > 0) {
-        logger.debug({ mint: rawAccount.mint }, `Waiting for ${this.config.autoSellDelay} ms before sell`);
-        tradeLogger('info', `Waiting ${this.config.autoSellDelay}ms before sell`, rawAccount.mint.toString());
-        await sleep(this.config.autoSellDelay);
-      }
+      tradeLogger('info', `🔥 ULTRA AGGRESSIVE MODE: SELLING IMMEDIATELY!`, rawAccount.mint.toString());
 
       const market = await this.marketStorage.get(poolData.state.marketId.toString());
 
@@ -276,15 +277,13 @@ export class Bot {
 
       const poolKeys: LiquidityPoolKeysV4 = createPoolKeys(new PublicKey(poolData.accountId), poolData.state, market);
 
-      await this.priceMatch(tokenAmountIn, poolKeys);
-
       for (let i = 0; i < this.config.maxSellRetries; i++) {
         try {
           logger.info(
             { mint: rawAccount.mint },
-            `Send sell transaction attempt: ${i + 1}/${this.config.maxSellRetries}`,
+            `🚀 ULTRA AGGRESSIVE SELL attempt: ${i + 1}/${this.config.maxSellRetries}`,
           );
-          tradeLogger('sell', `Sell attempt ${i + 1}/${this.config.maxSellRetries}`, rawAccount.mint.toString());
+          tradeLogger('sell', `🚀 ULTRA AGGRESSIVE SELL attempt ${i + 1}/${this.config.maxSellRetries}`, rawAccount.mint.toString());
 
           const result = await this.swap(
             poolKeys,
@@ -306,9 +305,9 @@ export class Bot {
                 signature: result.signature,
                 url: `https://solscan.io/tx/${result.signature}?cluster=${NETWORK}`,
               },
-              `Confirmed sell tx`,
+              `✅ ULTRA AGGRESSIVE SELL CONFIRMED!`,
             );
-            tradeLogger('sell', `✅ Sell confirmed - ${tokenAmountIn.toFixed()} tokens`, rawAccount.mint.toString(), result.signature);
+            tradeLogger('sell', `✅ ULTRA AGGRESSIVE SELL CONFIRMED! - ${tokenAmountIn.toFixed()} tokens`, rawAccount.mint.toString(), result.signature);
             break;
           }
 
@@ -329,10 +328,6 @@ export class Bot {
     } catch (error) {
       logger.error({ mint: rawAccount.mint.toString(), error }, `Failed to sell token`);
       tradeLogger('error', `Failed to sell token: ${error instanceof Error ? error.message : 'Unknown error'}`, rawAccount.mint.toString());
-    } finally {
-      if (this.config.oneTokenAtATime) {
-        this.sellExecutionCount--;
-      }
     }
   }
 
@@ -409,6 +404,15 @@ export class Bot {
   }
 
   private async filterMatch(poolKeys: LiquidityPoolKeysV4) {
+    // ULTRA AGGRESSIVE MODE: BYPASS ALL FILTERS - ALWAYS TRADE!
+    logger.debug(
+      { mint: poolKeys.baseMint.toString() },
+      `🔥 ULTRA AGGRESSIVE MODE: BYPASSING ALL FILTERS - TRADING EVERYTHING!`,
+    );
+    return true;
+    
+    // Original filter logic commented out for ultra-aggressive trading
+    /*
     if (this.config.filterCheckInterval === 0 || this.config.filterCheckDuration === 0) {
       return true;
     }
@@ -442,6 +446,7 @@ export class Bot {
     } while (timesChecked < timesToCheck);
 
     return false;
+    */
   }
 
   private async priceMatch(amountIn: TokenAmount, poolKeys: LiquidityPoolKeysV4) {
