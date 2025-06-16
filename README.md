@@ -864,7 +864,52 @@ graph LR
 
 ## ✨ Features
 
-### 🎛️ Web Dashboard Interface
+### 🚀 Starting the Application
+
+### 🔄 Startup Process
+
+**Step 1: Start Backend Server**
+```bash
+python3 start-backend.py
+```
+Expected output:
+```
+🔧 BACKEND SERVER
+========================================
+🚀 Starting Quant Bot Backend...
+🔗 Will run on: http://localhost:8000
+========================================
+📦 Installing backend dependencies...
+✅ Dependencies installed
+🔧 Starting backend server...
+```
+
+**Step 2: Start Frontend Dashboard**
+```bash
+python3 start-frontend.py
+```
+Expected output:
+```
+🎨 FRONTEND SERVER
+========================================
+🚀 Starting Quant Bot Frontend...
+🌐 Will run on: http://localhost:3000
+========================================
+📦 Installing frontend dependencies...
+✅ Dependencies installed
+🎨 Starting frontend server...
+🌐 Opening browser...
+```
+
+### 🔗 Service Communication
+
+The frontend (port 3000) automatically connects to the backend (port 8000) for:
+- **📊 Real-time data**: Live trading signals and market data
+- **🤖 Bot control**: Start/stop trading operations
+- **📈 Portfolio updates**: Position tracking and P&L monitoring
+- **⚙️ Configuration**: System settings and parameters
+
+## 🎛️ Web Dashboard Interface
 - **Centralized Control Panel**: Start/stop bot operations from a clean web interface
 - **Real-Time Monitoring**: Live portfolio status, active positions, and trade history
 - **Market Analysis Tools**: Token scanner, whale activity tracker, and risk assessment
@@ -1085,6 +1130,31 @@ flowchart LR
 - [ ] **Basic Terminal** knowledge
 - [ ] **Risk Management** understanding
 
+### 🐍 Python Startup Scripts
+
+QuantBot v3.0 includes convenient Python scripts for easy startup:
+
+| Script | Purpose | Port | Features |
+|--------|---------|------|----------|
+| `start-backend.py` | Launch trading engine & API | 8000 | Auto-install deps, signal handling |
+| `start-frontend.py` | Launch dashboard interface | 3000 | Auto-install deps, browser launch |
+
+**🚀 Quick Start:**
+```bash
+# Terminal 1: Start Backend
+python3 start-backend.py
+
+# Terminal 2: Start Frontend  
+python3 start-frontend.py
+```
+
+**✨ Script Features:**
+- **🔧 Auto-Dependency Installation**: Automatically runs `npm install` if needed
+- **🌐 Browser Auto-Launch**: Frontend script opens browser automatically
+- **⚡ Signal Handling**: Graceful shutdown with Ctrl+C
+- **📊 Status Monitoring**: Real-time startup progress
+- **🛡️ Error Handling**: Clear error messages and troubleshooting
+
 ### 🛠️ Professional Installation
 
 #### 1. Repository Setup
@@ -1159,18 +1229,27 @@ QUOTE_AMOUNT=0.001  # Amount per trade in SOL/USDC
 
 #### 6. Application Launch
 
-**Full Stack Launch (Recommended):**
+**🚀 Separate Launch (Recommended):**
+
+**Backend Server (Terminal 1):**
 ```bash
-npm run dev
+# Start backend server on http://localhost:8000
+python3 start-backend.py
 ```
 
-**Component-Specific Launch:**
+**Frontend Dashboard (Terminal 2):**
+```bash
+# Start frontend dashboard on http://localhost:3000
+python3 start-frontend.py
+```
+
+**Alternative NPM Commands:**
 ```bash
 # Backend only (API + Trading Engine)
-npm run backend:dev
+cd backend && npm run dev
 
 # Frontend only (Dashboard Interface)
-npm run frontend:dev
+cd frontend && npm run dev
 
 # Production mode
 npm run build
@@ -1179,23 +1258,26 @@ npm run start
 
 #### 7. Access & Verification
 
-- **Dashboard**: http://localhost:3000
-- **API Server**: http://localhost:3001
-- **Health Check**: http://localhost:3001/health
-- **WebSocket**: ws://localhost:3001
+- **Frontend Dashboard**: http://localhost:3000
+- **Backend API Server**: http://localhost:8000
+- **Health Check**: http://localhost:8000/health
+- **WebSocket**: ws://localhost:8000
 
 ### 🔍 Installation Verification
 
 ```bash
-# Check if all services are running
-curl http://localhost:3001/health
-curl http://localhost:3001/api/status
+# Check if backend server is running
+curl http://localhost:8000/health
+curl http://localhost:8000/api/status
 
 # Check WebSocket connection
-wscat -c ws://localhost:3001
+wscat -c ws://localhost:8000
 
 # Verify wallet connection
-curl http://localhost:3001/api/wallet/balance
+curl http://localhost:8000/api/wallet/balance
+
+# Check frontend dashboard
+curl http://localhost:3000
 ```
 
 ### 🚨 Common Installation Issues
@@ -1215,8 +1297,11 @@ curl http://localhost:3001/api/wallet/balance
 # Build and run with Docker
 docker-compose up -d
 
-# Access dashboard
+# Access frontend dashboard
 open http://localhost:3000
+
+# Access backend API
+curl http://localhost:8000/health
 ```
 
 #### Cloud Deployment
@@ -1329,8 +1414,9 @@ npm run deploy:development
 
 ### Access & Navigation
 
-- **URL**: `http://localhost:3000`
-- **Auto-Launch**: Browser opens automatically on startup
+- **Frontend URL**: `http://localhost:3000` (Dashboard Interface)
+- **Backend URL**: `http://localhost:8000` (API Server)
+- **Auto-Launch**: Browser opens automatically when running `start-frontend.py`
 - **Responsive Design**: Works on desktop and mobile devices
 - **Real-Time Updates**: Live data refresh without page reload
 
