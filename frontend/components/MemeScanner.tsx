@@ -147,14 +147,18 @@ export default function MemeScanner() {
 
   return (
     <div className="border border-green-500 bg-black h-full overflow-hidden relative">
-      <h2 className="absolute top-0 left-0 right-0 z-10 bg-black border-b border-green-500 px-2 py-1 text-sm font-normal">
-        MEME SCANNER {getConnectionStatus()}
-        <span className="float-right text-green-500 text-xs font-mono">
-          {stats.connection?.tokenCount || 0} TRACKED
-        </span>
+      <h2 className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-r from-green-900/50 to-green-800/30 border-b border-green-500 px-2 py-0.5 text-xs font-normal flex justify-between items-center">
+        <span>MEME SCANNER</span>
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-green-500 font-mono">{getConnectionStatus()}{stats.connection?.tokenCount || 0} TRACKED</span>
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-green-400">LIVE</span>
+          </div>
+        </div>
       </h2>
 
-      <div className="absolute top-8 left-0 right-0 bottom-0 overflow-y-auto p-2 scrollbar-hide">
+      <div className="absolute top-6 left-0 right-0 bottom-0 overflow-y-auto p-2 scrollbar-hide">
         {/* Token Stats */}
         <div className="grid grid-cols-2 gap-2 mb-3">
           <div className="border border-green-800 p-1">

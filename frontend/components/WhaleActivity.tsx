@@ -5,6 +5,7 @@ import { useState, useEffect } from "react"
 interface WhaleTransaction {
   signature: string
   wallet: string
+  fullWallet: string
   action: "Buy" | "Sell" | "Transfer"
   tokenMint: string
   tokenSymbol: string
@@ -158,10 +159,13 @@ export default function WhaleActivity() {
   if (loading) {
     return (
       <div className="border border-green-500 bg-black h-full overflow-hidden relative">
-        <h2 className="absolute top-0 left-0 right-0 z-10 bg-black border-b border-green-500 px-2 py-1 text-sm font-normal">
-          WHALE ACTIVITY - Loading...
+        <h2 className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-r from-green-900/50 to-green-800/30 border-b border-green-500 px-2 py-0.5 text-xs font-normal flex justify-between items-center">
+          <span>WHALE ACTIVITY</span>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-green-500 font-mono animate-pulse">LOADING...</span>
+          </div>
         </h2>
-        <div className="absolute top-8 left-0 right-0 bottom-0 flex items-center justify-center">
+        <div className="absolute top-6 left-0 right-0 bottom-0 flex items-center justify-center">
           <div className="text-green-500 text-sm animate-pulse">🐋 Scanning for whales...</div>
         </div>
       </div>
@@ -171,10 +175,13 @@ export default function WhaleActivity() {
   if (error) {
     return (
       <div className="border border-green-500 bg-black h-full overflow-hidden relative">
-        <h2 className="absolute top-0 left-0 right-0 z-10 bg-black border-b border-red-500 px-2 py-1 text-sm font-normal">
-          WHALE ACTIVITY - Error
+        <h2 className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-r from-red-900/50 to-red-800/30 border-b border-red-500 px-2 py-0.5 text-xs font-normal flex justify-between items-center">
+          <span>WHALE ACTIVITY</span>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-red-500 font-mono">ERROR</span>
+          </div>
         </h2>
-        <div className="absolute top-8 left-0 right-0 bottom-0 flex items-center justify-center p-2">
+        <div className="absolute top-6 left-0 right-0 bottom-0 flex items-center justify-center p-2">
           <div className="text-red-400 text-sm text-center">
             ⚠️ {error}
             <br />
@@ -189,14 +196,19 @@ export default function WhaleActivity() {
 
   return (
     <div className="border border-green-500 bg-black h-full overflow-hidden relative">
-      <h2 className="absolute top-0 left-0 right-0 z-10 bg-black border-b border-green-500 px-2 py-1 text-sm font-normal">
-        WHALE ACTIVITY {isConnected ? '🟢' : '🔴'}
-        <span className="float-right text-green-500 text-xs font-mono">
-          {formatNumber(whaleStats.totalVolume24h)} {whaleStats.totalMoves24h}MOVES ${whaleStats.topToken}
-        </span>
+      <h2 className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-r from-green-900/50 to-green-800/30 border-b border-green-500 px-2 py-0.5 text-xs font-normal flex justify-between items-center">
+        <span>WHALE ACTIVITY</span>
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-green-500 font-mono">{formatNumber(whaleStats.totalVolume24h)} 24H</span>
+          <span className="text-green-500 font-mono">{whaleStats.totalMoves24h} MOVES</span>
+          <div className="flex items-center gap-1">
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+            <span className={isConnected ? 'text-green-400' : 'text-red-400'}>{isConnected ? 'LIVE' : 'OFFLINE'}</span>
+          </div>
+        </div>
       </h2>
 
-      <div className="absolute top-8 left-0 right-0 bottom-0 flex flex-col">
+      <div className="absolute top-6 left-0 right-0 bottom-0 flex flex-col">
         {/* Filters */}
         <div className="px-2 py-1 border-b border-green-800">
           <div className="flex gap-1">
@@ -243,11 +255,14 @@ export default function WhaleActivity() {
                 onClick={() => openTransactionOnSolscan(move.signature)}
               >
                 <div 
-                  className="text-green-500 font-mono hover:text-green-300 hover:underline"
+                  className="text-green-500 font-mono hover:text-green-300 hover:underline cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation()
-                    openWalletOnSolscan(move.wallet)
+                    e.preventDefault()
+                    console.log('Opening wallet:', move.fullWallet)
+                    openWalletOnSolscan(move.fullWallet)
                   }}
+                  title={`Click to view wallet: ${move.fullWallet}`}
                 >
                   {move.wallet}
                 </div>
