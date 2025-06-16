@@ -330,34 +330,96 @@ export class MemeScannerService {
   private calculateTokenScore(token: TokenData): number {
     let score = 0;
 
-    // Market cap score (lower is better for entry)
-    if (token.marketCap < 50000) score += 25;
-    else if (token.marketCap < 100000) score += 20;
-    else if (token.marketCap < 150000) score += 15;
-    else if (token.marketCap < 200000) score += 10;
+    // 🚀 VOLUME SCORING (0-35 points) - MOST IMPORTANT FOR MOONSHOTS
+    if (token.volume24h >= 200000) score += 35; // $200K+ volume = MOONSHOT TERRITORY
+    else if (token.volume24h >= 100000) score += 30; // $100K+ volume = Strong momentum
+    else if (token.volume24h >= 50000) score += 25; // $50K+ volume = Good activity
+    else if (token.volume24h >= 25000) score += 20; // $25K+ volume = Decent
+    else if (token.volume24h >= 10000) score += 15; // $10K+ volume = Minimal viable
+    else if (token.volume24h >= 5000) score += 8; // $5K+ volume = Weak
+    else if (token.volume24h >= 1000) score += 3; // $1K+ volume = Very weak
+    // Below $1K volume = 0 points (likely rug/dead)
 
-    // Liquidity score
-    if (token.liquidity >= 10000 && token.liquidity <= 30000) score += 20;
-    else if (token.liquidity >= 5000 && token.liquidity <= 50000) score += 15;
+    // 📈 MOMENTUM SCORING (0-25 points) - Price action is king
+    if (token.priceChange24h >= 200) score += 25; // 200%+ pump = PARABOLIC
+    else if (token.priceChange24h >= 100) score += 22; // 100%+ pump = Strong moon
+    else if (token.priceChange24h >= 50) score += 18; // 50%+ pump = Good momentum
+    else if (token.priceChange24h >= 25) score += 14; // 25%+ pump = Building
+    else if (token.priceChange24h >= 10) score += 10; // 10%+ pump = Positive
+    else if (token.priceChange24h >= 0) score += 5; // Green = Holding
+    else if (token.priceChange24h >= -10) score += 2; // Small dip = Potential entry
+    // Bigger dumps = 0 points
 
-    // Buy/Sell ratio score
+    // Buy/Sell ratio score (0-20 points) - Buying pressure
     const ratio = token.sellRatio > 0 ? token.buyRatio / token.sellRatio : token.buyRatio;
-    if (ratio >= 6) score += 25;
-    else if (ratio >= 5) score += 20;
-    else if (ratio >= 4) score += 15;
+    if (ratio >= 10) score += 20; // 10:1 = Insane buying pressure
+    else if (ratio >= 6) score += 16; // 6:1 = Strong buying
+    else if (ratio >= 4) score += 12; // 4:1 = Good buying
+    else if (ratio >= 2) score += 6; // 2:1 = Decent
 
-    // Age score (newer is better)
+    // Market cap score (0-10 points) - Lower MC = higher upside potential
+    if (token.marketCap < 25000) score += 10; // Under $25K = Gem potential
+    else if (token.marketCap < 50000) score += 8; // Under $50K = Good upside
+    else if (token.marketCap < 100000) score += 6; // Under $100K = Decent
+    else if (token.marketCap < 200000) score += 3; // Under $200K = Some upside
+
+    // Age score (0-10 points) - Fresh tokens with momentum
     const ageMinutes = token.age / 60;
-    if (ageMinutes < 5) score += 15;
-    else if (ageMinutes < 10) score += 10;
-    else if (ageMinutes < 15) score += 5;
+    if (ageMinutes < 3) score += 10; // Under 3 min = Ultra fresh
+    else if (ageMinutes < 10) score += 8; // Under 10 min = Fresh
+    else if (ageMinutes < 20) score += 5; // Under 20 min = Recent
+    else if (ageMinutes < 60) score += 2; // Under 1 hour = Okay
 
-    // Safety checks
-    if (token.isLiquidityBurned) score += 10;
-    if (token.isContractSafe) score += 10;
-    if (token.isMintRenounced) score += 5;
+    // Safety checks (reduced weight - volume matters more than safety for moonshots)
+    if (token.isLiquidityBurned) score += 0; // LP burned doesn't guarantee moonshot
+    if (token.isContractSafe) score += 0; // Contract safety doesn't guarantee volume
+    if (token.isMintRenounced) score += 0; // Mint renounced doesn't guarantee momentum
 
     return Math.min(score, 100);
+  }
+
+  // Generate realistic volume distribution (more moonshots, fewer rugs)
+  private generateRealisticVolume(): number {
+    const rand = Math.random();
+    
+    // 5% chance of moonshot volume ($100K-$500K)
+    if (rand < 0.05) {
+      return Math.floor(Math.random() * 400000) + 100000;
+    }
+    // 15% chance of strong volume ($25K-$100K)
+    else if (rand < 0.20) {
+      return Math.floor(Math.random() * 75000) + 25000;
+    }
+    // 30% chance of decent volume ($5K-$25K)
+    else if (rand < 0.50) {
+      return Math.floor(Math.random() * 20000) + 5000;
+    }
+    // 50% chance of low volume ($100-$5K) - potential rugs
+    else {
+      return Math.floor(Math.random() * 4900) + 100;
+    }
+  }
+
+  // Generate realistic price movements (more pumps during bull runs)
+  private generateRealisticPriceChange(): number {
+    const rand = Math.random();
+    
+    // 10% chance of parabolic pump (100%+)
+    if (rand < 0.10) {
+      return Math.floor(Math.random() * 400) + 100; // 100-500%
+    }
+    // 20% chance of strong pump (25-100%)
+    else if (rand < 0.30) {
+      return Math.floor(Math.random() * 75) + 25; // 25-100%
+    }
+    // 30% chance of moderate movement (-25% to +25%)
+    else if (rand < 0.60) {
+      return (Math.random() - 0.5) * 50; // -25% to +25%
+    }
+    // 40% chance of dump (-100% to -25%)
+    else {
+      return -(Math.random() * 75 + 25); // -25% to -100%
+    }
   }
 
   private passesStrictCriteria(token: TokenData): boolean {
@@ -370,6 +432,8 @@ export class MemeScannerService {
       token.liquidity <= this.CRITERIA.MAX_LIQUIDITY &&
       buyToSellRatio >= this.CRITERIA.MIN_BUY_SELL_RATIO &&
       ageMinutes <= this.CRITERIA.MAX_AGE_MINUTES &&
+      token.volume24h >= 10000 && // MINIMUM $10K volume for moonshot potential
+      token.priceChange24h >= 0 && // Must be green (positive price action)
       (!this.CRITERIA.REQUIRE_LP_BURNED || token.isLiquidityBurned) &&
       (!this.CRITERIA.REQUIRE_SAFE_CONTRACT || token.isContractSafe)
     );
@@ -440,8 +504,8 @@ export class MemeScannerService {
         score: 0,
         createdAt: new Date(now.getTime() - ageSeconds * 1000),
         lastTradeAt: new Date(now.getTime() - Math.floor(Math.random() * 60000)), // Last trade within 1 min
-        volume24h: Math.floor(Math.random() * 50000) + 1000, // $1K-$51K volume
-        priceChange24h: (Math.random() - 0.5) * 200, // -100% to +100% change
+        volume24h: this.generateRealisticVolume(), // Realistic volume distribution
+        priceChange24h: this.generateRealisticPriceChange(), // Realistic price movements
       };
 
       tokenData.score = this.calculateTokenScore(tokenData);
@@ -517,8 +581,8 @@ export class MemeScannerService {
         score: 0,
         createdAt: new Date(now.getTime() - ageSeconds * 1000),
         lastTradeAt: new Date(now.getTime() - Math.floor(Math.random() * 60000)), // Last trade within 1 min
-        volume24h: Math.floor(Math.random() * 50000) + 1000, // $1K-$51K volume
-        priceChange24h: (Math.random() - 0.5) * 200, // -100% to +100% change
+        volume24h: this.generateRealisticVolume(), // Realistic volume distribution
+        priceChange24h: this.generateRealisticPriceChange(), // Realistic price movements
       };
 
       tokenData.score = this.calculateTokenScore(tokenData);

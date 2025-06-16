@@ -1,36 +1,131 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
-interface WhaleMove {
+interface WhaleTransaction {
+  signature: string
   wallet: string
   action: "Buy" | "Sell" | "Transfer"
-  amount: string
+  tokenMint: string
+  tokenSymbol: string
+  tokenName: string
+  amount: number
+  usdValue: number
   impact: "Low" | "Medium" | "High" | "Critical"
+  timestamp: string
+  blockTime: number
+  slot: number
+}
+
+interface WhaleStats {
+  totalVolume24h: number
+  totalMoves24h: number
+  buyPressure: number
+  sellPressure: number
+  topToken: string
+  avgTransactionSize: number
 }
 
 export default function WhaleActivity() {
   const [filter, setFilter] = useState<string>("All")
-  const [whaleMoves] = useState<WhaleMove[]>([
-    { wallet: "0x7a2...3f9b", action: "Buy", amount: "1,250 SOL", impact: "High" },
-    { wallet: "0x9c4...8e2d", action: "Transfer", amount: "890 SOL", impact: "Medium" },
-    { wallet: "0x3b5...7a1c", action: "Sell", amount: "2,100 SOL", impact: "High" },
-    { wallet: "0x4d8...2e5f", action: "Buy", amount: "750 SOL", impact: "Medium" },
-    { wallet: "0x6f1...9c3a", action: "Transfer", amount: "1,500 SOL", impact: "High" },
-    { wallet: "0x8e2...4d1c", action: "Buy", amount: "3,200 SOL", impact: "High" },
-    { wallet: "0x5a7...1b8d", action: "Sell", amount: "950 SOL", impact: "Medium" },
-    { wallet: "0xaf3...9c2b", action: "Sell", amount: "4,500 SOL", impact: "Critical" },
-  ])
+  const [whaleTransactions, setWhaleTransactions] = useState<WhaleTransaction[]>([])
+  const [whaleStats, setWhaleStats] = useState<WhaleStats>({
+    totalVolume24h: 0,
+    totalMoves24h: 0,
+    buyPressure: 50,
+    sellPressure: 50,
+    topToken: 'SOL',
+    avgTransactionSize: 0
+  })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [isConnected, setIsConnected] = useState(false)
 
-  const filteredMoves =
-    filter === "All"
-      ? whaleMoves
-      : whaleMoves.filter((move) => {
-          if (filter === "Buys") return move.action === "Buy"
-          if (filter === "Sells") return move.action === "Sell"
-          if (filter === "Transfers") return move.action === "Transfer"
-          return true
-        })
+  // Fetch whale data from backend
+  const fetchWhaleData = async () => {
+    try {
+      const [transactionsRes, statsRes, statusRes] = await Promise.all([
+        fetch('http://localhost:8000/api/whale-tracker/transactions?limit=20'),
+        fetch('http://localhost:8000/api/whale-tracker/stats'),
+        fetch('http://localhost:8000/api/whale-tracker/status')
+      ])
+
+      if (transactionsRes.ok) {
+        const transactions = await transactionsRes.json()
+        setWhaleTransactions(transactions)
+      }
+
+      if (statsRes.ok) {
+        const stats = await statsRes.json()
+        setWhaleStats(stats)
+      }
+
+      if (statusRes.ok) {
+        const status = await statusRes.json()
+        setIsConnected(status.isActive)
+      }
+
+      setError(null)
+    } catch (error) {
+      console.error('Failed to fetch whale data:', error)
+      setError('Failed to connect to whale tracker')
+      setIsConnected(false)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Initial fetch and set up polling
+  useEffect(() => {
+    fetchWhaleData()
+    const interval = setInterval(fetchWhaleData, 5000) // Update every 5 seconds
+    return () => clearInterval(interval)
+  }, [])
+
+  const filteredMoves = filter === "All"
+    ? whaleTransactions
+    : whaleTransactions.filter((move) => {
+        if (filter === "Buys") return move.action === "Buy"
+        if (filter === "Sells") return move.action === "Sell"
+        if (filter === "Transfers") return move.action === "Transfer"
+        return true
+      })
+
+  const formatNumber = (num: number): string => {
+    if (num >= 1000000000) return `$${(num / 1000000000).toFixed(2)}B`
+    if (num >= 1000000) return `$${(num / 1000000).toFixed(2)}M`
+    if (num >= 1000) return `$${(num / 1000).toFixed(0)}K`
+    return `$${num.toFixed(2)}`
+  }
+
+  const formatAmount = (amount: number, symbol: string): string => {
+    if (amount >= 1000000) return `${(amount / 1000000).toFixed(2)}M ${symbol}`
+    if (amount >= 1000) return `${(amount / 1000).toFixed(0)}K ${symbol}`
+    return `${amount.toFixed(2)} ${symbol}`
+  }
+
+  const getTimeAgo = (timestamp: string): string => {
+    const now = new Date()
+    const txTime = new Date(timestamp)
+    const diffMs = now.getTime() - txTime.getTime()
+    const diffMins = Math.floor(diffMs / (1000 * 60))
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+    
+    if (diffMins < 60) return `${diffMins}m ago`
+    if (diffHours < 24) return `${diffHours}h ago`
+    return `${Math.floor(diffHours / 24)}d ago`
+  }
+
+  const openWalletOnSolscan = (wallet: string) => {
+    // Open the wallet address on Solscan explorer
+    const solscanUrl = `https://solscan.io/account/${wallet}`
+    window.open(solscanUrl, '_blank')
+  }
+
+  const openTransactionOnSolscan = (signature: string) => {
+    const solscanUrl = `https://solscan.io/tx/${signature}`
+    window.open(solscanUrl, '_blank')
+  }
 
   const getActionColor = (action: string) => {
     switch (action) {
@@ -60,11 +155,45 @@ export default function WhaleActivity() {
     }
   }
 
+  if (loading) {
+    return (
+      <div className="border border-green-500 bg-black h-full overflow-hidden relative">
+        <h2 className="absolute top-0 left-0 right-0 z-10 bg-black border-b border-green-500 px-2 py-1 text-sm font-normal">
+          WHALE ACTIVITY - Loading...
+        </h2>
+        <div className="absolute top-8 left-0 right-0 bottom-0 flex items-center justify-center">
+          <div className="text-green-500 text-sm animate-pulse">🐋 Scanning for whales...</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="border border-green-500 bg-black h-full overflow-hidden relative">
+        <h2 className="absolute top-0 left-0 right-0 z-10 bg-black border-b border-red-500 px-2 py-1 text-sm font-normal">
+          WHALE ACTIVITY - Error
+        </h2>
+        <div className="absolute top-8 left-0 right-0 bottom-0 flex items-center justify-center p-2">
+          <div className="text-red-400 text-sm text-center">
+            ⚠️ {error}
+            <br />
+            <span className="text-xs text-gray-500 mt-2 block">
+              Ensure backend server is running
+            </span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="border border-green-500 bg-black h-full overflow-hidden relative">
       <h2 className="absolute top-0 left-0 right-0 z-10 bg-black border-b border-green-500 px-2 py-1 text-sm font-normal">
-        WHALE ACTIVITY
-        <span className="float-right text-green-500 text-xs font-mono">25KVOL 47MOVES $PEPE2HOT</span>
+        WHALE ACTIVITY {isConnected ? '🟢' : '🔴'}
+        <span className="float-right text-green-500 text-xs font-mono">
+          {formatNumber(whaleStats.totalVolume24h)} {whaleStats.totalMoves24h}MOVES ${whaleStats.topToken}
+        </span>
       </h2>
 
       <div className="absolute top-8 left-0 right-0 bottom-0 flex flex-col">
@@ -99,33 +228,57 @@ export default function WhaleActivity() {
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto scrollbar-hide">
-          {filteredMoves.map((move, index) => (
-            <div
-              key={index}
-              className="grid grid-cols-4 gap-2 items-center px-2 py-1 text-xs border-b border-green-900/20 hover:bg-green-500/5"
-            >
-              <div className="text-green-500 font-mono">{move.wallet}</div>
-              <div className={`text-center ${getActionColor(move.action)}`}>{move.action}</div>
-              <div className="text-right">{move.amount}</div>
-              <div className="text-center">
-                <span className={`px-1 py-0.5 text-xs ${getImpactColor(move.impact)}`}>{move.impact}</span>
+          {filteredMoves.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-gray-500 text-xs">
+                {isConnected ? 'No whale activity detected' : 'Connecting to whale tracker...'}
               </div>
             </div>
-          ))}
+          ) : (
+            filteredMoves.map((move, index) => (
+              <div
+                key={move.signature}
+                className="grid grid-cols-4 gap-2 items-center px-2 py-1 text-xs border-b border-green-900/20 hover:bg-green-500/10 cursor-pointer transition-all"
+                title={`${move.tokenName} (${move.tokenSymbol})\nSignature: ${move.signature}\nUSD Value: ${formatNumber(move.usdValue)}\nTime: ${getTimeAgo(move.timestamp)}\n\nClick wallet: View on Solscan\nClick transaction: View on Solscan`}
+                onClick={() => openTransactionOnSolscan(move.signature)}
+              >
+                <div 
+                  className="text-green-500 font-mono hover:text-green-300 hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    openWalletOnSolscan(move.wallet)
+                  }}
+                >
+                  {move.wallet}
+                </div>
+                <div className={`text-center ${getActionColor(move.action)}`}>{move.action}</div>
+                <div className="text-right font-mono">{formatAmount(move.amount, move.tokenSymbol)}</div>
+                <div className="text-center">
+                  <span className={`px-1 py-0.5 text-xs rounded ${getImpactColor(move.impact)}`}>{move.impact}</span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
         {/* Metrics */}
         <div className="px-2 py-1 border-t border-green-800 text-xs">
           <div className="mb-1">
-            Buy Pressure: <span className="text-green-500">65%</span>
+            Buy Pressure: <span className="text-green-500">{whaleStats.buyPressure.toFixed(0)}%</span>
             <div className="w-full h-1 bg-green-500/10 mt-0.5">
-              <div className="h-full bg-gradient-to-r from-green-500 to-green-400" style={{ width: "65%" }}></div>
+              <div 
+                className="h-full bg-gradient-to-r from-green-500 to-green-400" 
+                style={{ width: `${whaleStats.buyPressure}%` }}
+              ></div>
             </div>
           </div>
           <div>
-            Sell Pressure: <span className="text-red-500">35%</span>
+            Sell Pressure: <span className="text-red-500">{whaleStats.sellPressure.toFixed(0)}%</span>
             <div className="w-full h-1 bg-red-500/10 mt-0.5">
-              <div className="h-full bg-gradient-to-r from-red-500 to-red-400" style={{ width: "35%" }}></div>
+              <div 
+                className="h-full bg-gradient-to-r from-red-500 to-red-400" 
+                style={{ width: `${whaleStats.sellPressure}%` }}
+              ></div>
             </div>
           </div>
         </div>

@@ -3,6 +3,7 @@ import cors from 'cors';
 import { Connection, Commitment, Keypair } from '@solana/web3.js';
 import { PortfolioService } from './portfolio-service';
 import { MemeScannerService } from './meme-scanner';
+import { WhaleTrackerService } from './whale-tracker';
 import bs58 from 'bs58';
 import dotenv from 'dotenv';
 
@@ -37,6 +38,17 @@ try {
   console.log('🔍 MEME SCANNER Service initialized');
 } catch (error) {
   console.warn('⚠️  Failed to initialize MEME SCANNER service:', error);
+}
+
+// Initialize Whale Tracker service
+let whaleTrackerService: WhaleTrackerService | null = null;
+try {
+  whaleTrackerService = new WhaleTrackerService(connection);
+  console.log('🐋 Whale Tracker Service initialized');
+  // Start tracking whales automatically
+  whaleTrackerService.startTracking();
+} catch (error) {
+  console.warn('⚠️  Failed to initialize Whale Tracker service:', error);
 }
 
 console.log(`🔗 Using RPC: ${RPC_ENDPOINT}`);
@@ -438,6 +450,109 @@ app.get('/api/meme-scanner/status', (req: Request, res: Response) => {
       error: 'Failed to fetch MEME SCANNER status',
       isConnected: false,
       tokenCount: 0
+    });
+  }
+});
+
+// WHALE TRACKER API ENDPOINTS
+// ============================
+
+// API endpoint to get whale transactions
+app.get('/api/whale-tracker/transactions', (req: Request, res: Response) => {
+  if (!whaleTrackerService) {
+    return res.status(503).json({ 
+      error: 'Whale Tracker service not available.' 
+    });
+  }
+
+  try {
+    const limit = parseInt(req.query.limit as string) || 50;
+    const transactions = whaleTrackerService.getRecentTransactions(limit);
+    res.json(transactions);
+  } catch (error) {
+    console.error('Failed to get whale transactions:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch whale transactions' 
+    });
+  }
+});
+
+// API endpoint to get whale statistics
+app.get('/api/whale-tracker/stats', (req: Request, res: Response) => {
+  if (!whaleTrackerService) {
+    return res.status(503).json({ 
+      error: 'Whale Tracker service not available.' 
+    });
+  }
+
+  try {
+    const stats = whaleTrackerService.getWhaleStats();
+    res.json(stats);
+  } catch (error) {
+    console.error('Failed to get whale stats:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch whale stats' 
+    });
+  }
+});
+
+// API endpoint to get whale tracker status
+app.get('/api/whale-tracker/status', (req: Request, res: Response) => {
+  if (!whaleTrackerService) {
+    return res.status(503).json({ 
+      error: 'Whale Tracker service not available.',
+      isActive: false
+    });
+  }
+
+  try {
+    res.json({
+      isActive: whaleTrackerService.isActive(),
+      service: 'active'
+    });
+  } catch (error) {
+    console.error('Failed to get whale tracker status:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch whale tracker status',
+      isActive: false
+    });
+  }
+});
+
+// API endpoint to start whale tracking
+app.post('/api/whale-tracker/start', async (req: Request, res: Response) => {
+  if (!whaleTrackerService) {
+    return res.status(503).json({ 
+      error: 'Whale Tracker service not available.' 
+    });
+  }
+
+  try {
+    await whaleTrackerService.startTracking();
+    res.json({ success: true, message: 'Whale tracking started' });
+  } catch (error) {
+    console.error('Failed to start whale tracking:', error);
+    res.status(500).json({ 
+      error: 'Failed to start whale tracking' 
+    });
+  }
+});
+
+// API endpoint to stop whale tracking
+app.post('/api/whale-tracker/stop', (req: Request, res: Response) => {
+  if (!whaleTrackerService) {
+    return res.status(503).json({ 
+      error: 'Whale Tracker service not available.' 
+    });
+  }
+
+  try {
+    whaleTrackerService.stopTracking();
+    res.json({ success: true, message: 'Whale tracking stopped' });
+  } catch (error) {
+    console.error('Failed to stop whale tracking:', error);
+    res.status(500).json({ 
+      error: 'Failed to stop whale tracking' 
     });
   }
 });
