@@ -24,7 +24,6 @@
 - [📊 Performance Optimization](#-performance-optimization)
 - [🔍 Monitoring & Analytics](#-monitoring--analytics)
 - [🐛 Troubleshooting](#-troubleshooting)
-- [🎉 Incentive Program](#-incentive-program)
 - [📞 Support & Community](#-support--community)
 - [🌟 Contributing](#-contributing)
 - [📜 Legal & Compliance](#-legal--compliance)
@@ -594,46 +593,18 @@ LOG_LEVEL=debug
 3. **Filter Tuning**: Adjust filter parameters for market conditions
 4. **Position Sizing**: Optimize trade sizes for gas efficiency
 
-## 🎉 Incentive Campaign
-
-### 🏆 Win Up to 10 SOL in Rewards!
-
-**Campaign Period**: Until August 1, 2025
-
-### Participation Requirements
-
-1. **📊 Volume Requirement**
-   - Use QuantBot continuously for 7 days
-   - Achieve $100,000+ total transaction volume
-
-2. **👥 Referral Bonus**
-   - Refer at least 3 friends to QuantBot
-   - Friends must achieve $30,000+ combined volume
-
-### 🎁 Exclusive Benefits
-
-- **💸 Fee Refunds**: Complete warp transaction fee refunds
-- **🔗 Referral Rewards**: Additional rewards for successful referrals
-- **🏅 Top Trader Bonus**: Monthly volume leader receives extra rewards
-
-### 📞 Claim Process
-
-Contact Discord: `warp_zara` to claim your rewards
-
-> ⚠️ **Fair Play Policy**: Multiple accounts for reward farming are prohibited
-
 ## 🛠️ Advanced Features
 
-### 🚀 Warp Transactions (Beta)
+### 🚀 Enhanced Transactions (Beta)
 
-Enhanced transaction execution through third-party integrations:
+Advanced transaction execution through optimized routing:
 
 - **⚡ Faster Execution**: Reduced transaction confirmation times
 - **🔄 Higher Success Rate**: Improved transaction success rates  
-- **💰 Fee Structure**: Distributed fees between developers and providers
+- **💰 Optimized Routing**: Smart routing for better execution prices
 - **🔒 Security**: Private keys never transmitted to external services
 
-**Enable Warp**: Set `TRANSACTION_EXECUTOR=warp` in configuration
+**Enable Enhanced Mode**: Set `TRANSACTION_EXECUTOR=enhanced` in configuration
 
 ### 📋 Snipe Lists
 
@@ -647,19 +618,19 @@ Target specific tokens for trading:
 
 ### 🆘 Getting Help
 
-- **Discord Support**: `warp_zara`
+- **GitHub Issues**: Bug reports and feature requests
 - **Documentation**: Comprehensive guides and examples
-- **Community**: Active trading community and discussions
+- **Community Forums**: Technical discussions and troubleshooting
 
 ### 🐛 Reporting Issues
 
 1. **📊 Gather Information**: Set `LOG_LEVEL=debug` for detailed logs
 2. **📝 Document Problem**: Include error messages and configuration
-3. **📞 Contact Support**: Reach out via Discord with details
+3. **📞 Submit Issue**: Create a detailed GitHub issue with logs and configuration
 
 ### 🚀 Feature Requests
 
-We welcome suggestions for new features and improvements. Contact our team via Discord to discuss your requirements.
+We welcome suggestions for new features and improvements. Please submit feature requests through GitHub Issues with detailed descriptions and use cases.
 
 ## 📜 Legal & Compliance
 
@@ -745,9 +716,9 @@ We welcome contributions from the community! However, all contributors must:
 ## 📞 Support & Community
 
 ### 🆘 Support Channels
-- **Discord**: `warp_zara` (Primary support)
 - **GitHub Issues**: Bug reports and feature requests
 - **Documentation**: Comprehensive guides and API docs
+- **Community Forums**: Technical discussions and troubleshooting
 
 ### ⚠️ Support Limitations
 **SUPPORT IS PROVIDED ON A BEST-EFFORT BASIS ONLY:**
