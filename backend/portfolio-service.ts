@@ -8,9 +8,11 @@ export interface Position {
   id: string;
   mint: string;
   symbol: string;
+  name: string;
   amount: number;
   entryPrice: number;
   currentPrice: number;
+  marketCap: number;
   unrealizedPnl: number;
   unrealizedPnlPercent: number;
   entryTime: Date;
@@ -304,6 +306,12 @@ export class PortfolioService {
       const prices = await this.getTokenPrices(mints);
       logger.info(`Fetched prices for ${Object.keys(prices).length} tokens`);
 
+      // Get token metadata and market caps
+      const metadata = await this.getTokenMetadata(mints);
+      const marketCaps = await this.getMarketCapData(mints);
+      logger.info(`Fetched metadata for ${Object.keys(metadata).length} tokens`);
+      logger.info(`Fetched market caps for ${Object.keys(marketCaps).length} tokens`);
+
       const positions: Position[] = [];
       const stablecoins = [
         'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
@@ -348,15 +356,21 @@ export class PortfolioService {
         // Get entry time from first buy trade
         const entryTime = await this.getTokenEntryTime(token.mint);
 
-        logger.info(`Adding position for ${this.getTokenSymbol(token.mint)}: Entry=$${entryPrice}, Current=$${currentPrice}, P&L=${unrealizedPnlPercent.toFixed(2)}%`);
+        // Get token metadata
+        const tokenMetadata = metadata[token.mint] || { symbol: this.getTokenSymbol(token.mint), name: this.getTokenSymbol(token.mint) };
+        const marketCap = marketCaps[token.mint] || 0;
+
+        logger.info(`Adding position for ${tokenMetadata.name}: Entry=$${entryPrice}, Current=$${currentPrice}, P&L=${unrealizedPnlPercent.toFixed(2)}%, MC=$${marketCap}`);
 
         positions.push({
           id: token.mint,
           mint: token.mint,
-          symbol: this.getTokenSymbol(token.mint),
+          symbol: tokenMetadata.symbol,
+          name: tokenMetadata.name,
           amount: token.actualAmount,
           entryPrice: Number(entryPrice),
           currentPrice: Number(currentPrice),
+          marketCap: Number(marketCap),
           unrealizedPnl: Number(unrealizedPnl),
           unrealizedPnlPercent: Number(unrealizedPnlPercent),
           entryTime: entryTime,
@@ -745,6 +759,134 @@ export class PortfolioService {
     // For unknown tokens, create a more "meme-like" symbol
     const shortMint = mint.slice(0, 6).toUpperCase();
     return `${shortMint}`;
+  }
+
+  // Get token metadata from Jupiter API
+  async getTokenMetadata(mints: string[]): Promise<Record<string, any>> {
+    if (mints.length === 0) return {};
+    
+    try {
+      const metadataPromises = mints.map(async (mint) => {
+        try {
+          // Try Jupiter API first
+          const response = await axios.get(`https://api.jup.ag/token/${mint}`, {
+            timeout: 10000
+          });
+          return { mint, data: response.data, source: 'jupiter' };
+        } catch (error) {
+          logger.warn(`Failed to fetch metadata from Jupiter for ${mint}:`, error instanceof Error ? error.message : String(error));
+          
+          // Fallback to DexScreener for token info
+          try {
+            const dexResponse = await axios.get(`https://api.dexscreener.com/latest/dex/tokens/${mint}`, {
+              timeout: 5000
+            });
+            
+            if (dexResponse.data && dexResponse.data.pairs && dexResponse.data.pairs.length > 0) {
+              const bestPair = dexResponse.data.pairs[0];
+              const tokenInfo = bestPair.baseToken || bestPair.quoteToken;
+              
+              if (tokenInfo && tokenInfo.address === mint) {
+                return { 
+                  mint, 
+                  data: {
+                    symbol: tokenInfo.symbol,
+                    name: tokenInfo.name || tokenInfo.symbol,
+                    decimals: 9 // DexScreener doesn't provide decimals
+                  },
+                  source: 'dexscreener'
+                };
+              }
+            }
+          } catch (dexError) {
+            logger.warn(`Failed to fetch metadata from DexScreener for ${mint}`);
+          }
+          
+          return { mint, data: null, source: 'none' };
+        }
+      });
+      
+      const results = await Promise.all(metadataPromises);
+      const metadata: Record<string, any> = {};
+      
+      results.forEach(({ mint, data, source }) => {
+        if (data) {
+          metadata[mint] = {
+            symbol: data.symbol || this.getTokenSymbol(mint),
+            name: data.name || data.symbol || this.getTokenSymbol(mint),
+            decimals: data.decimals || 9,
+            logoURI: data.logoURI || null,
+            tags: data.tags || [],
+            source: source
+          };
+          logger.info(`Got metadata for ${mint} from ${source}: ${data.name || data.symbol}`);
+        } else {
+          // Fallback for tokens without metadata
+          metadata[mint] = {
+            symbol: this.getTokenSymbol(mint),
+            name: this.getTokenSymbol(mint),
+            decimals: 9,
+            logoURI: null,
+            tags: [],
+            source: 'fallback'
+          };
+        }
+      });
+      
+      return metadata;
+    } catch (error) {
+      logger.error('Error fetching token metadata:', error);
+      // Return fallback metadata
+      const fallbackMetadata: Record<string, any> = {};
+      mints.forEach(mint => {
+        fallbackMetadata[mint] = {
+          symbol: this.getTokenSymbol(mint),
+          name: this.getTokenSymbol(mint),
+          decimals: 9,
+          logoURI: null,
+          tags: [],
+          source: 'error-fallback'
+        };
+      });
+      return fallbackMetadata;
+    }
+  }
+
+  // Get market cap data from external sources
+  async getMarketCapData(mints: string[]): Promise<Record<string, number>> {
+    if (mints.length === 0) return {};
+    
+    try {
+      // Try to get market cap from DexScreener API (good for meme coins)
+      const marketCaps: Record<string, number> = {};
+      
+      for (const mint of mints) {
+        try {
+          const response = await axios.get(`https://api.dexscreener.com/latest/dex/tokens/${mint}`, {
+            timeout: 5000
+          });
+          
+          if (response.data && response.data.pairs && response.data.pairs.length > 0) {
+            // Get the pair with highest liquidity
+            const bestPair = response.data.pairs.reduce((best: any, current: any) => {
+              return (current.liquidity?.usd || 0) > (best.liquidity?.usd || 0) ? current : best;
+            });
+            
+            if (bestPair.marketCap) {
+              marketCaps[mint] = bestPair.marketCap;
+            }
+          }
+        } catch (error) {
+          // Continue to next mint if this one fails
+          continue;
+        }
+      }
+      
+      return marketCaps;
+    } catch (error) {
+      logger.error('Error fetching market cap data:', error);
+      return {};
+    }
   }
 
   close() {

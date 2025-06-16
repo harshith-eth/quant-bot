@@ -6,9 +6,11 @@ interface Position {
   id: string
   mint: string
   symbol: string
+  name: string
   amount: number | string
   entryPrice: number | string
   currentPrice: number | string
+  marketCap: number | string
   unrealizedPnl: number | string
   unrealizedPnlPercent: number | string
   entryTime: string
@@ -67,14 +69,27 @@ export default function ActivePositions() {
     const amount = Number(position.amount) || 0;
     const currentPrice = Number(position.currentPrice) || 0;
     const entryPrice = Number(position.entryPrice) || 0;
+    const marketCap = Number(position.marketCap) || 0;
     const unrealizedPnlPercent = Number(position.unrealizedPnlPercent) || 0;
     
     const currentValue = amount * currentPrice;
     const timeAgo = getTimeAgo(new Date(position.entryTime || Date.now()));
     
+    // Use the token name if available, otherwise fall back to symbol
+    // Prioritize name over symbol for better readability (e.g., "FartCat" instead of "3DK9CN")
+    let displayName = position.name && position.name !== position.symbol && position.name.length > 3 
+      ? position.name 
+      : position.symbol;
+    
+    // Clean up the display name - remove common prefixes/suffixes
+    displayName = displayName.replace(/^(\$|Token|Coin)\s*/i, '').trim();
+    
+    // Add $ prefix if not already present
+    const tokenDisplay = displayName.startsWith('$') ? displayName : `$${displayName}`;
+    
     return {
-      token: position.symbol.startsWith('$') ? position.symbol : `$${position.symbol}`,
-      mc: formatMarketCap(currentValue), // Using current value as proxy for MC
+      token: tokenDisplay,
+      mc: marketCap > 0 ? formatMarketCap(marketCap) : formatMarketCap(currentValue),
       entry: entryPrice > 0 ? `$${entryPrice < 0.001 ? entryPrice.toExponential(2) : entryPrice.toFixed(6)}` : 'N/A',
       size: `$${currentValue.toFixed(2)}`,
       pl: `${unrealizedPnlPercent >= 0 ? '+' : ''}${unrealizedPnlPercent.toFixed(1)}%`,
@@ -87,12 +102,16 @@ export default function ActivePositions() {
 
   // Helper function to format market cap
   function formatMarketCap(value: number): string {
-    if (value >= 1000000) {
+    if (value >= 1000000000) {
+      return `$${(value / 1000000000).toFixed(1)}B`;
+    } else if (value >= 1000000) {
       return `$${(value / 1000000).toFixed(1)}M`;
     } else if (value >= 1000) {
       return `$${(value / 1000).toFixed(0)}K`;
-    } else {
+    } else if (value >= 1) {
       return `$${value.toFixed(0)}`;
+    } else {
+      return `$${value.toFixed(3)}`;
     }
   }
 
@@ -150,7 +169,7 @@ export default function ActivePositions() {
       <div className="border border-green-500 bg-black h-full overflow-hidden relative">
         <h2 className="absolute top-0 left-0 right-0 z-10 bg-black border-b border-green-500 px-2 py-1 text-sm font-normal flex justify-between">
           ACTIVE POSITIONS
-          <span className="text-green-500 text-xs font-mono">0/5</span>
+          <span className="text-green-500 text-xs font-mono">0 POSITIONS</span>
         </h2>
         <div className="absolute top-8 left-0 right-0 bottom-0 flex items-center justify-center p-4">
           <div className="text-center">
@@ -171,13 +190,11 @@ export default function ActivePositions() {
     <div className="border border-green-500 bg-black h-full overflow-hidden relative">
       <h2 className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-r from-green-900/50 to-green-800/30 border-b border-green-500 px-2 py-0.5 text-xs font-normal flex justify-between items-center">
         <span>ACTIVE POSITIONS</span>
-        <div className="flex items-center gap-1 text-xs">
-          <span>POSITIONS: {displayPositions.length}/5</span>
-          <div className="w-8 h-0.5 bg-green-500/10 relative overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-green-500 to-green-400"
-              style={{ width: `${Math.min((displayPositions.length / 5) * 100, 100)}%` }}
-            ></div>
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-green-500 font-mono">{displayPositions.length} ACTIVE</span>
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-green-400">LIVE</span>
           </div>
         </div>
       </h2>
@@ -185,14 +202,14 @@ export default function ActivePositions() {
       <div className="absolute top-6 left-0 right-0 bottom-0 overflow-hidden">
         {/* Header */}
         <div className="sticky top-0 bg-black z-20 border-b border-green-800 px-2 py-1">
-          <div className="grid grid-cols-7 gap-2 text-xs font-bold">
-            <div>Token</div>
+          <div className="grid grid-cols-[2fr_1fr_1.5fr_1.5fr_1fr_0.8fr_1fr] gap-1 text-xs font-bold">
+            <div className="truncate">Token</div>
             <div className="text-right">MC</div>
             <div className="text-right">Entry</div>
             <div className="text-right">Size</div>
             <div className="text-right">P/L</div>
             <div className="text-center">Time</div>
-            <div className="text-left">TP</div>
+            <div className="text-center">TP</div>
           </div>
         </div>
 
@@ -201,19 +218,21 @@ export default function ActivePositions() {
           {displayPositions.map((position, index) => (
             <div
               key={index}
-              className="grid grid-cols-7 gap-2 items-center px-2 py-1 text-xs border-b border-green-900/20"
+              className="grid grid-cols-[2fr_1fr_1.5fr_1.5fr_1fr_0.8fr_1fr] gap-1 items-center px-2 py-1 text-xs border-b border-green-900/20"
             >
-              <div className="text-green-500 font-bold">{position.token}</div>
-              <div className="text-right">{position.mc}</div>
-              <div className="text-right">{position.entry}</div>
-              <div className="text-right">{position.size}</div>
-              <div className={`text-right ${position.plType === "profit" ? "text-green-500" : "text-red-500"}`}>
+              <div className="text-green-500 font-bold truncate" title={position.token}>
+                {position.token}
+              </div>
+              <div className="text-right text-yellow-400">{position.mc}</div>
+              <div className="text-right text-gray-300">{position.entry}</div>
+              <div className="text-right text-blue-400">{position.size}</div>
+              <div className={`text-right font-bold ${position.plType === "profit" ? "text-green-500" : "text-red-500"}`}>
                 {position.pl}
               </div>
-              <div className="text-center text-xs">{position.time}</div>
-              <div className="text-left">
+              <div className="text-center text-gray-400">{position.time}</div>
+              <div className="text-center">
                 <button
-                  className={`px-2 py-0.5 text-xs border ${
+                  className={`px-1.5 py-0.5 text-xs border rounded ${
                     position.actionType === "tp-ready"
                       ? "bg-green-900/50 border-green-600 text-green-500"
                       : "bg-yellow-900/50 border-yellow-600 text-yellow-500"
