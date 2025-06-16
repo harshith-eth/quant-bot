@@ -36,29 +36,42 @@ export default function ExecuteTrades() {
     let reconnectAttempts = 0;
     const maxReconnectAttempts = 5;
     let reconnectTimeout: NodeJS.Timeout;
+    let isConnecting = false;
 
     const connectWebSocket = () => {
+      // Prevent multiple simultaneous connection attempts
+      if (isConnecting) {
+        console.log('🔌 WebSocket connection already in progress, skipping...');
+        return;
+      }
+
       try {
+        isConnecting = true;
+        
         // Close existing connection if any
         if (wsRef.current) {
-          wsRef.current.close();
+          console.log('🔌 Closing existing WebSocket connection...');
+          wsRef.current.close(1000, 'Reconnecting');
+          wsRef.current = null;
         }
 
         console.log('🔌 Attempting to connect to WebSocket at ws://localhost:8000');
         const ws = new WebSocket('ws://localhost:8000');
         wsRef.current = ws;
 
-        // Set a connection timeout
+        // Set a longer connection timeout (10 seconds instead of 5)
         const connectionTimeout = setTimeout(() => {
           if (ws.readyState === WebSocket.CONNECTING) {
-            console.error('❌ WebSocket connection timeout');
-            ws.close();
+            console.error('❌ WebSocket connection timeout after 10 seconds');
+            ws.close(1000, 'Connection timeout');
+            isConnecting = false;
           }
-        }, 5000);
+        }, 10000);
 
         ws.onopen = () => {
           clearTimeout(connectionTimeout);
-          console.log('🔌 Connected to trade logs WebSocket');
+          isConnecting = false;
+          console.log('✅ Connected to trade logs WebSocket');
           setWsConnected(true);
           reconnectAttempts = 0; // Reset reconnect attempts on successful connection
         };
@@ -79,21 +92,26 @@ export default function ExecuteTrades() {
                 timestamp: new Date(log.timestamp)
               }));
               setTradeLogs(logs);
+              console.log(`📊 Received ${logs.length} initial trade logs`);
             } else if (data.type === 'clearLogs') {
               setTradeLogs([]);
+              console.log('🗑️ Trade logs cleared');
             }
           } catch (error) {
-            console.error('Error parsing WebSocket message:', error);
+            console.error('❌ Error parsing WebSocket message:', error);
           }
         };
 
         ws.onclose = (event) => {
           clearTimeout(connectionTimeout);
-          console.log(`🔌 WebSocket connection closed - Code: ${event.code}, Reason: ${event.reason || 'No reason provided'}`);
+          isConnecting = false;
+          
+          const closeReason = event.reason || 'No reason provided';
+          console.log(`🔌 WebSocket connection closed - Code: ${event.code}, Reason: ${closeReason}`);
           setWsConnected(false);
           
           // Only attempt to reconnect if it wasn't a manual close and we haven't exceeded max attempts
-          if (event.code !== 1000 && reconnectAttempts < maxReconnectAttempts) {
+          if (event.code !== 1000 && event.code !== 1001 && reconnectAttempts < maxReconnectAttempts) {
             reconnectAttempts++;
             const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000); // Exponential backoff, max 30s
             console.log(`🔄 Attempting to reconnect WebSocket in ${delay}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
@@ -103,16 +121,29 @@ export default function ExecuteTrades() {
             }, delay);
           } else if (reconnectAttempts >= maxReconnectAttempts) {
             console.error('❌ Max WebSocket reconnection attempts reached');
+          } else if (event.code === 1000 || event.code === 1001) {
+            console.log('✅ WebSocket closed normally');
           }
         };
 
         ws.onerror = (error) => {
           clearTimeout(connectionTimeout);
+          isConnecting = false;
+          
           console.error('❌ WebSocket error occurred:', error);
           console.error('WebSocket state:', ws.readyState);
+          console.error('WebSocket URL:', ws.url);
+          
+          // Log more detailed error information
+          if (error instanceof Event) {
+            console.error('Error type:', error.type);
+            console.error('Error target:', error.target);
+          }
+          
           setWsConnected(false);
         };
       } catch (error) {
+        isConnecting = false;
         console.error('❌ Failed to create WebSocket connection:', error);
         setWsConnected(false);
         
@@ -131,6 +162,7 @@ export default function ExecuteTrades() {
     // Load initial trade logs via HTTP as fallback
     const loadInitialLogs = async () => {
       try {
+        console.log('📊 Loading initial trade logs via HTTP...');
         const response = await fetch('http://localhost:8000/api/trade-logs?limit=50');
         if (response.ok) {
           const logs = await response.json();
@@ -139,24 +171,34 @@ export default function ExecuteTrades() {
             timestamp: new Date(log.timestamp)
           }));
           setTradeLogs(formattedLogs);
-          console.log('📊 Loaded initial trade logs via HTTP');
+          console.log(`✅ Loaded ${formattedLogs.length} initial trade logs via HTTP`);
+        } else {
+          console.error('❌ Failed to load initial logs - HTTP status:', response.status);
         }
       } catch (error) {
-        console.error('Failed to load initial trade logs:', error);
+        console.error('❌ Failed to load initial trade logs:', error);
       }
     };
 
-    // Load initial logs first, then connect WebSocket
+    // Load initial logs first, then connect WebSocket with a small delay
     loadInitialLogs();
-    connectWebSocket();
+    
+    // Add a small delay before connecting WebSocket to ensure component is fully mounted
+    const initTimeout = setTimeout(() => {
+      connectWebSocket();
+    }, 100);
 
     return () => {
+      clearTimeout(initTimeout);
       if (reconnectTimeout) {
         clearTimeout(reconnectTimeout);
       }
       if (wsRef.current) {
+        console.log('🔌 Closing WebSocket connection due to component unmount');
         wsRef.current.close(1000, 'Component unmounting'); // Normal closure
+        wsRef.current = null;
       }
+      isConnecting = false;
     };
   }, []);
 
