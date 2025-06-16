@@ -218,11 +218,10 @@ export class WhaleTrackerService {
     logger.info('🐋 Starting whale tracker...');
 
     try {
-      // Add some sample whale transactions for demonstration
-      this.addSampleTransactions();
+      // Start real whale detection only - no simulations
+      await this.startRealWhaleDetection();
       
-      // Set up real-time monitoring
-      this.setupWebSocketMonitoring();
+      logger.info('🐋 Real whale tracker started - monitoring live transactions only');
       
     } catch (error) {
       logger.error('Failed to start whale tracking:', error);
@@ -333,35 +332,8 @@ export class WhaleTrackerService {
   }
 
   private setupWebSocketMonitoring(): void {
-    // Real whale detection using Helius Enhanced API
-    this.startRealWhaleDetection();
-
-    // Simulate new whale transactions more frequently for better demo
-    const simulateInterval = setInterval(() => {
-      if (!this.isRunning) {
-        clearInterval(simulateInterval);
-        return;
-      }
-
-      // Higher chance of generating whale transactions
-      if (Math.random() < 0.7) { // 70% chance every interval
-        this.generateRandomWhaleTransaction();
-      }
-    }, 15000); // Check every 15 seconds
-
-    // Also add a separate interval for high-frequency smaller whales
-    const frequentWhalesInterval = setInterval(() => {
-      if (!this.isRunning) {
-        clearInterval(frequentWhalesInterval);
-        return;
-      }
-
-      if (Math.random() < 0.5) { // 50% chance
-        this.generateRandomWhaleTransaction(true); // Generate smaller whale
-      }
-    }, 8000); // Every 8 seconds
-
-    logger.info('🐋 Enhanced whale monitoring simulation started');
+    // Only real whale detection - no simulations
+    logger.info('🐋 Real whale monitoring active - no simulations');
   }
 
   private async startRealWhaleDetection(): Promise<void> {

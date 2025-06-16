@@ -3,8 +3,10 @@ import { Listeners } from './listeners';
 import { Connection, KeyedAccountInfo, Keypair } from '@solana/web3.js';
 import { LIQUIDITY_STATE_LAYOUT_V4, MARKET_STATE_LAYOUT_V3, Token, TokenAmount } from '@raydium-io/raydium-sdk';
 import { AccountLayout, getAssociatedTokenAddressSync } from '@solana/spl-token';
+import BN from 'bn.js';
 import { Bot, BotConfig } from './bot';
 import { DefaultTransactionExecutor, TransactionExecutor } from './transactions';
+import { GuaranteedTrader } from './guaranteed-trader';
 import {
   getToken,
   getWallet,
@@ -133,6 +135,24 @@ function printDetails(wallet: Keypair, quoteToken: Token, bot: Bot) {
   logger.info('Bot is running! Press CTRL + C to stop it.');
 }
 
+// Add guaranteed trading function
+async function executeGuaranteedTrade(guaranteedTrader: GuaranteedTrader, addTradeLog: any) {
+  logger.info('🚀 GUARANTEED TRADING MODE ACTIVATED - Will trade within 30 seconds!');
+  addTradeLog('info', '🚀 GUARANTEED TRADING MODE ACTIVATED - Will trade within 30 seconds!');
+  
+  try {
+    const success = await guaranteedTrader.executeGuaranteedTrade();
+    if (success) {
+      addTradeLog('info', '✅ GUARANTEED trade executed successfully!');
+    } else {
+      addTradeLog('error', 'Guaranteed trade failed - this should not happen!');
+    }
+  } catch (error) {
+    logger.error('Error executing guaranteed trade:', error);
+    addTradeLog('error', `Failed to execute guaranteed trade: ${error}`);
+  }
+}
+
 export const runListener = async () => {
   logger.level = LOG_LEVEL;
   logger.info('Bot is starting...');
@@ -209,6 +229,10 @@ export const runListener = async () => {
 
   addTradeLog('info', 'Bot validation successful - initializing...');
 
+  // Initialize Guaranteed Trader for 30-second guaranteed trading
+  const guaranteedTrader = new GuaranteedTrader(connection, wallet, quoteToken, botConfig.quoteAmount, txExecutor, addTradeLog);
+  addTradeLog('info', 'Guaranteed Trader initialized - WILL trade within 30 seconds!');
+
   if (PRE_LOAD_EXISTING_MARKETS) {
     addTradeLog('info', 'Pre-loading existing markets...');
     await marketCache.init({ quoteToken });
@@ -229,7 +253,7 @@ export const runListener = async () => {
   listeners.on('market', (updatedAccountInfo: KeyedAccountInfo) => {
     const marketState = MARKET_STATE_LAYOUT_V3.decode(updatedAccountInfo.accountInfo.data);
     marketCache.save(updatedAccountInfo.accountId.toString(), marketState);
-    addTradeLog('info', `Market data updated: ${updatedAccountInfo.accountId.toString()}`);
+    // Removed spam: addTradeLog('info', `Market data updated: ${updatedAccountInfo.accountId.toString()}`);
   });
 
   listeners.on('pool', async (updatedAccountInfo: KeyedAccountInfo) => {
@@ -251,12 +275,29 @@ export const runListener = async () => {
       return;
     }
 
-    addTradeLog('info', `Wallet balance change detected: ${accountData.mint.toString()}`, accountData.mint.toString());
+    // Only log actual trades, not balance changes: addTradeLog('info', `Wallet balance change detected: ${accountData.mint.toString()}`, accountData.mint.toString());
     await bot.sell(updatedAccountInfo.accountId, accountData);
   });
 
   printDetails(wallet, quoteToken, bot);
   addTradeLog('info', '🚀 Bot is now actively monitoring for trading opportunities');
+  
+  // Add countdown timer for guaranteed trade
+  let countdown = 30;
+  const countdownInterval = setInterval(() => {
+    if (countdown > 0) {
+      addTradeLog('info', `⏰ GUARANTEED TRADE in ${countdown} seconds...`);
+      countdown--;
+    } else {
+      clearInterval(countdownInterval);
+    }
+  }, 1000);
+  
+  // Execute GUARANTEED trade within 30 seconds
+  setTimeout(async () => {
+    clearInterval(countdownInterval);
+    await executeGuaranteedTrade(guaranteedTrader, addTradeLog);
+  }, 5000); // Start guaranteed trading after 5 seconds
   
   // Add periodic heartbeat to show the bot is active
   const heartbeatInterval = setInterval(() => {
@@ -266,6 +307,7 @@ export const runListener = async () => {
   // Cleanup function
   const cleanup = () => {
     clearInterval(heartbeatInterval);
+    clearInterval(countdownInterval);
     listeners.stop();
     addTradeLog('info', '🛑 Bot monitoring stopped');
   };

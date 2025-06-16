@@ -8,6 +8,7 @@ import bs58 from 'bs58';
 import dotenv from 'dotenv';
 import WebSocket from 'ws';
 import { createServer } from 'http';
+import axios from 'axios';
 
 dotenv.config();
 
@@ -569,6 +570,354 @@ app.delete('/api/trade-logs', (req: Request, res: Response) => {
     res.status(500).json({ 
       error: 'Failed to clear trade logs' 
     });
+  }
+});
+
+// Manual trading endpoints
+app.post('/api/manual-buy', async (req: Request, res: Response) => {
+  try {
+    addTradeLog('info', '🚀 Manual BUY order initiated by user');
+    
+    // Simple direct Jupiter swap without bot validation
+    const success = await executeSimpleBuy();
+    
+    if (success) {
+      res.json({ success: true, message: 'Manual buy order executed successfully' });
+    } else {
+      res.status(400).json({ success: false, message: 'Buy order failed - check logs for details' });
+    }
+  } catch (error) {
+    console.error('Manual buy failed:', error);
+    addTradeLog('error', `Manual buy failed: ${error}`);
+    res.status(500).json({ success: false, message: 'Manual buy order failed' });
+  }
+});
+
+// Simple buy function that works immediately
+async function executeSimpleBuy(): Promise<boolean> {
+  try {
+    addTradeLog('buy', '💰 EXECUTING SIMPLE BUY - Finding trending token...');
+    
+    // Get a trending token from DexScreener
+    const token = await getSimpleTrendingToken();
+    if (!token) {
+      addTradeLog('error', 'No suitable tokens found for trading');
+      return false;
+    }
+    
+    addTradeLog('buy', `🎯 Selected token: ${token.symbol} (${token.name})`, token.mint);
+    
+    // Execute Jupiter swap
+    const success = await executeJupiterSwap(token);
+    return success;
+    
+  } catch (error) {
+    addTradeLog('error', `Simple buy failed: ${error}`);
+    return false;
+  }
+}
+
+async function getSimpleTrendingToken(): Promise<any> {
+  try {
+    addTradeLog('info', '🔍 Checking MEME SCANNER for trending tokens...');
+    
+    // First, try to get tokens from our MEME SCANNER
+    if (memeScannerService) {
+      try {
+        const opportunities = await memeScannerService.getBestOpportunities();
+        if (opportunities && opportunities.length > 0) {
+          // Get the highest scoring token that's recent (within last hour)
+          const recentTokens = opportunities.filter(token => {
+            const ageMinutes = (Date.now() - token.createdAt.getTime()) / (1000 * 60);
+            return ageMinutes <= 60; // Within last hour
+          });
+          
+          if (recentTokens.length > 0) {
+            const bestToken = recentTokens[0];
+            addTradeLog('info', `🎯 MEME SCANNER found fresh token: ${bestToken.symbol} (Score: ${bestToken.score}, Age: ${Math.floor((Date.now() - bestToken.createdAt.getTime()) / (1000 * 60))}min)`, bestToken.mint);
+            return {
+              mint: bestToken.mint,
+              symbol: bestToken.symbol,
+              name: bestToken.name || bestToken.symbol
+            };
+          } else {
+            // If no recent tokens, use the best available
+            const bestToken = opportunities[0];
+            addTradeLog('info', `🎯 MEME SCANNER found: ${bestToken.symbol} (Score: ${bestToken.score})`, bestToken.mint);
+            return {
+              mint: bestToken.mint,
+              symbol: bestToken.symbol,
+              name: bestToken.name || bestToken.symbol
+            };
+          }
+        }
+      } catch (scannerError) {
+        addTradeLog('info', 'MEME SCANNER unavailable, trying other sources...');
+      }
+    }
+    
+    // Fallback to popular tokens that are guaranteed to work
+    const popularTokens = [
+      {
+        mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', // BONK
+        symbol: 'BONK',
+        name: 'Bonk'
+      },
+      {
+        mint: 'WENWENvqqNya429ubCdR81ZmD69brwQaaBYY6p3LCpk', // WEN
+        symbol: 'WEN', 
+        name: 'Wen'
+      },
+      {
+        mint: 'ukHH6c7mMyiWCf1b9pnWe25TSpkDDt3H5pQZgZ74J82', // BOME
+        symbol: 'BOME',
+        name: 'Book of Meme'
+      }
+    ];
+    
+    // Use a random popular token
+    const randomToken = popularTokens[Math.floor(Math.random() * popularTokens.length)];
+    addTradeLog('info', `🎲 Using popular token: ${randomToken.symbol}`, randomToken.mint);
+    return randomToken;
+    
+  } catch (error) {
+    console.error('Error getting trending token:', error);
+    addTradeLog('error', `Error getting token: ${error}`);
+    // Return BONK as ultimate fallback
+    return {
+      mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
+      symbol: 'BONK',
+      name: 'Bonk'
+    };
+  }
+}
+
+async function executeJupiterSwap(token: any): Promise<boolean> {
+  try {
+    addTradeLog('buy', `💫 Executing Jupiter swap for ${token.symbol}...`, token.mint);
+    
+    const axios = (await import('axios')).default;
+    const { Connection, VersionedTransaction } = await import('@solana/web3.js');
+    const { getWallet, RPC_ENDPOINT, COMMITMENT_LEVEL } = await import('./helpers');
+    
+    const connection = new Connection(RPC_ENDPOINT, COMMITMENT_LEVEL);
+    const wallet = getWallet(process.env.PRIVATE_KEY?.trim() || '');
+    
+    const WSOL_MINT = 'So11111111111111111111111111111111111111112';
+    const inputMint = WSOL_MINT; // Buying with SOL
+    const outputMint = token.mint; // Buying this token
+    const amount = 500000; // 0.0005 SOL (~$0.12)
+    const slippageBps = 1500; // 15% slippage
+    
+    addTradeLog('info', `Getting quote for ${token.symbol}...`, token.mint);
+    
+    // Get quote from Jupiter
+    const quoteResponse = await axios.get(`https://quote-api.jup.ag/v6/quote`, {
+      params: {
+        inputMint,
+        outputMint,
+        amount,
+        slippageBps,
+        onlyDirectRoutes: false,
+        asLegacyTransaction: false
+      },
+      timeout: 15000
+    });
+
+    if (!quoteResponse.data) {
+      addTradeLog('error', `No quote available for ${token.symbol}`, token.mint);
+      return false;
+    }
+
+    addTradeLog('info', `Quote received! Expected tokens: ${quoteResponse.data.outAmount}`, token.mint);
+
+    // Get swap transaction
+    const swapResponse = await axios.post('https://quote-api.jup.ag/v6/swap', {
+      quoteResponse: quoteResponse.data,
+      userPublicKey: wallet.publicKey.toString(),
+      wrapAndUnwrapSol: true,
+      dynamicComputeUnitLimit: true,
+      prioritizationFeeLamports: 200000 // Higher priority fee
+    }, {
+      timeout: 15000
+    });
+
+    if (!swapResponse.data?.swapTransaction) {
+      addTradeLog('error', `Failed to get swap transaction for ${token.symbol}`, token.mint);
+      return false;
+    }
+
+    addTradeLog('buy', `🚀 Sending transaction for ${token.symbol}...`, token.mint);
+
+    // Execute transaction
+    const swapTransactionBuf = Buffer.from(swapResponse.data.swapTransaction, 'base64');
+    const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
+    transaction.sign([wallet]);
+
+    const signature = await connection.sendTransaction(transaction, {
+      skipPreflight: false,
+      preflightCommitment: 'confirmed',
+      maxRetries: 3
+    });
+
+    addTradeLog('buy', `📡 Transaction sent! Signature: ${signature}`, token.mint, signature);
+
+    // Wait for confirmation
+    const confirmation = await connection.confirmTransaction(signature, 'confirmed');
+    
+    if (confirmation.value.err) {
+      addTradeLog('error', `Transaction failed: ${confirmation.value.err}`, token.mint, signature);
+      return false;
+    }
+
+    addTradeLog('buy', `✅ BUY SUCCESSFUL! Bought ${token.symbol}`, token.mint, signature);
+    addTradeLog('info', `🎉 Check your wallet for ${token.symbol} tokens!`, token.mint);
+    
+    return true;
+    
+  } catch (error) {
+    addTradeLog('error', `Jupiter swap failed: ${error}`, token.mint);
+    return false;
+  }
+}
+
+app.post('/api/manual-sell', async (req: Request, res: Response) => {
+  try {
+    addTradeLog('info', '📉 Manual SELL order initiated by user');
+    
+    if (!portfolioService) {
+      return res.status(503).json({ 
+        success: false, 
+        message: 'Portfolio service not available. Please check wallet configuration.' 
+      });
+    }
+
+    // Get current positions to sell
+    const positions = await portfolioService.getOpenPositions();
+    
+    if (positions.length === 0) {
+      addTradeLog('info', 'No open positions to sell');
+      return res.json({ success: false, message: 'No open positions to sell' });
+    }
+
+    // Execute REAL sell for the first position
+    const position = positions[0];
+    addTradeLog('sell', `🔥 REAL SELL ORDER: ${position.symbol}`, position.mint);
+    
+    try {
+      // Import Jupiter API functionality
+      const { Connection, VersionedTransaction } = await import('@solana/web3.js');
+      const { getWallet, RPC_ENDPOINT, COMMITMENT_LEVEL } = await import('./helpers');
+      const axios = (await import('axios')).default;
+      
+      const connection = new Connection(RPC_ENDPOINT, COMMITMENT_LEVEL);
+      const wallet = getWallet(process.env.PRIVATE_KEY?.trim() || '');
+      
+      // Use Jupiter to sell the token back to SOL
+      const WSOL_MINT = 'So11111111111111111111111111111111111111112';
+      const inputMint = position.mint; // Token we're selling
+      const outputMint = WSOL_MINT; // We want SOL back
+      const amount = Math.floor(position.amount * Math.pow(10, 6)); // Convert to token units (assume 6 decimals)
+      const slippageBps = 1500; // 15% slippage for selling
+      
+      addTradeLog('sell', `Getting sell quote for ${position.symbol}...`, position.mint);
+      
+      // Get quote from Jupiter
+      const quoteResponse = await axios.get(`https://quote-api.jup.ag/v6/quote`, {
+        params: {
+          inputMint,
+          outputMint,
+          amount,
+          slippageBps,
+          onlyDirectRoutes: false,
+          asLegacyTransaction: false
+        },
+        timeout: 10000
+      });
+
+      if (!quoteResponse.data) {
+        addTradeLog('error', `No sell quote available for ${position.symbol}`, position.mint);
+        return res.json({ success: false, message: `No sell quote available for ${position.symbol}` });
+      }
+
+      // Get swap transaction
+      const swapResponse = await axios.post('https://quote-api.jup.ag/v6/swap', {
+        quoteResponse: quoteResponse.data,
+        userPublicKey: wallet.publicKey.toString(),
+        wrapAndUnwrapSol: true,
+        dynamicComputeUnitLimit: true,
+        prioritizationFeeLamports: 100000
+      }, {
+        timeout: 10000
+      });
+
+      if (!swapResponse.data?.swapTransaction) {
+        addTradeLog('error', `Failed to get sell transaction for ${position.symbol}`, position.mint);
+        return res.json({ success: false, message: `Failed to get sell transaction for ${position.symbol}` });
+      }
+
+      // Execute the sell transaction
+      const swapTransactionBuf = Buffer.from(swapResponse.data.swapTransaction, 'base64');
+      const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
+      transaction.sign([wallet]);
+
+      const signature = await connection.sendTransaction(transaction, {
+        skipPreflight: false,
+        preflightCommitment: 'confirmed',
+        maxRetries: 3
+      });
+
+      addTradeLog('sell', `📡 REAL SELL transaction sent! Signature: ${signature}`, position.mint, signature);
+
+      // Wait for confirmation
+      const confirmation = await connection.confirmTransaction(signature, 'confirmed');
+      
+      if (confirmation.value.err) {
+        addTradeLog('error', `Sell transaction failed: ${confirmation.value.err}`, position.mint, signature);
+        return res.json({ success: false, message: `Sell transaction failed` });
+      }
+
+      addTradeLog('sell', `✅ REAL SELL SUCCESSFUL! Sold ${position.symbol} for SOL`, position.mint, signature);
+      res.json({ success: true, message: `Real sell order for ${position.symbol} executed successfully!` });
+      
+    } catch (error) {
+      addTradeLog('error', `Real sell execution failed: ${error}`, position.mint);
+      res.json({ success: false, message: `Real sell execution failed: ${error}` });
+    }
+  } catch (error) {
+    console.error('Manual sell failed:', error);
+    addTradeLog('error', `Manual sell failed: ${error}`);
+    res.status(500).json({ success: false, message: 'Manual sell order failed' });
+  }
+});
+
+app.post('/api/toggle-auto-trading', async (req: Request, res: Response) => {
+  try {
+    const { enabled } = req.body;
+    
+    if (enabled) {
+      addTradeLog('info', '🤖 AUTO TRADING mode ENABLED - Executing trade...');
+      
+      // Execute simple auto trade
+      const success = await executeSimpleBuy();
+      
+      if (success) {
+        addTradeLog('info', '✅ AUTO TRADING executed successfully');
+        res.json({ success: true, message: 'Auto trading executed successfully' });
+      } else {
+        addTradeLog('error', 'AUTO TRADING failed to execute');
+        res.json({ success: false, message: 'Auto trading failed to execute' });
+      }
+      
+    } else {
+      addTradeLog('info', '⏸️ AUTO TRADING mode DISABLED');
+      res.json({ success: true, message: 'Auto trading disabled' });
+    }
+    
+  } catch (error) {
+    console.error('Toggle auto trading failed:', error);
+    addTradeLog('error', `Toggle auto trading failed: ${error}`);
+    res.status(500).json({ success: false, message: 'Failed to toggle auto trading' });
   }
 });
 

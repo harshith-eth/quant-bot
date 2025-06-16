@@ -236,6 +236,61 @@ export default function ExecuteTrades() {
     }
   };
 
+  const executeBuy = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/manual-buy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const result = await response.json();
+      if (!response.ok) {
+        console.error('Buy failed:', result.message);
+      }
+    } catch (error) {
+      console.error('Failed to execute buy:', error);
+    }
+  };
+
+  const executeSell = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/manual-sell', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const result = await response.json();
+      if (!response.ok) {
+        console.error('Sell failed:', result.message);
+      }
+    } catch (error) {
+      console.error('Failed to execute sell:', error);
+    }
+  };
+
+  const toggleAutoTrading = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/toggle-auto-trading', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ enabled: true }),
+      });
+      
+      const result = await response.json();
+      if (!response.ok) {
+        console.error('Auto trading toggle failed:', result.message);
+      }
+    } catch (error) {
+      console.error('Failed to toggle auto trading:', error);
+    }
+  };
+
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('en-US', { 
       hour12: false,
@@ -308,6 +363,36 @@ export default function ExecuteTrades() {
           </div>
         </div>
 
+        {/* Trading Controls */}
+        <div className="p-3 border-b border-green-500/20 bg-green-900/20">
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={executeBuy}
+              disabled={!botStatus.connected}
+              className="flex-1 px-4 py-2 text-sm font-bold border-2 border-green-500 bg-green-500/20 text-green-400 rounded hover:bg-green-500/30 hover:text-green-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              🚀 BUY
+            </button>
+            <button
+              onClick={executeSell}
+              disabled={!botStatus.connected}
+              className="flex-1 px-4 py-2 text-sm font-bold border-2 border-red-500 bg-red-500/20 text-red-400 rounded hover:bg-red-500/30 hover:text-red-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              📉 SELL
+            </button>
+            <button
+              onClick={toggleAutoTrading}
+              disabled={!botStatus.connected}
+              className="flex-1 px-4 py-2 text-sm font-bold border-2 border-blue-500 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 hover:text-blue-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              🤖 AUTO
+            </button>
+          </div>
+          <div className="text-center text-xs text-gray-400 mt-2">
+            Manual trading controls - Execute trades instantly
+          </div>
+        </div>
+
         {/* Trade Logs */}
         <div className="flex-1 overflow-y-auto p-2 bg-black/50 scrollbar-hide">
           {tradeLogs.length === 0 ? (
@@ -320,8 +405,8 @@ export default function ExecuteTrades() {
                   </>
                 ) : (
                   <>
-                    <div>📊 Ready to execute trades</div>
-                    <div className="text-xs mt-1">Use the START BOT button in the header to begin</div>
+                    <div>🚀 Ready to execute trades</div>
+                    <div className="text-xs mt-1">Use the BUY, SELL, or AUTO buttons above to start trading</div>
                   </>
                 )}
               </div>
