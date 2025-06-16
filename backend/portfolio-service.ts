@@ -287,9 +287,125 @@ export class PortfolioService {
     });
   }
 
-  // Get current open positions with mock data for development
+  // Get current open positions - all token holdings excluding SOL and stablecoins
   async getOpenPositions(): Promise<Position[]> {
-    return [];
+    try {
+      logger.info('Getting open positions...');
+      const tokenBalances = await this.getTokenBalances();
+      logger.info(`Found ${tokenBalances.length} token balances`);
+      
+      if (tokenBalances.length === 0) {
+        logger.info('No token balances found');
+        return [];
+      }
+
+      // Get prices for all tokens
+      const mints = tokenBalances.map(token => token.mint);
+      const prices = await this.getTokenPrices(mints);
+      logger.info(`Fetched prices for ${Object.keys(prices).length} tokens`);
+
+      const positions: Position[] = [];
+      const stablecoins = [
+        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+        'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // USDT
+        'So11111111111111111111111111111111111111112'  // SOL (we don't want SOL in positions)
+      ];
+
+      for (const token of tokenBalances) {
+        logger.info(`Processing token: ${token.mint.slice(0, 8)}... (${this.getTokenSymbol(token.mint)})`);
+        
+        // Skip stablecoins and SOL - we only want meme coins/other tokens
+        if (stablecoins.includes(token.mint)) {
+          logger.info(`Skipping stablecoin: ${this.getTokenSymbol(token.mint)}`);
+          continue;
+        }
+
+        const currentPrice = prices[token.mint] || 0;
+        const currentValue = token.actualAmount * currentPrice;
+        
+        logger.info(`Token ${this.getTokenSymbol(token.mint)}: ${token.actualAmount} tokens @ $${currentPrice} = $${currentValue}`);
+        
+        // Only include tokens with meaningful value (> $0.01)
+        if (currentValue < 0.01) {
+          logger.info(`Skipping token with low value: $${currentValue}`);
+          continue;
+        }
+
+        // Try to get entry price from database (from trades table)
+        let entryPrice = await this.getTokenEntryPrice(token.mint);
+        
+        // If no trade history, use current price as entry price (assume just bought)
+        if (entryPrice === 0) {
+          entryPrice = currentPrice;
+        }
+        
+        const entryValue = token.actualAmount * entryPrice;
+        
+        // Calculate P&L
+        const unrealizedPnl = currentValue - entryValue;
+        const unrealizedPnlPercent = entryValue > 0 ? (unrealizedPnl / entryValue) * 100 : 0;
+
+        // Get entry time from first buy trade
+        const entryTime = await this.getTokenEntryTime(token.mint);
+
+        logger.info(`Adding position for ${this.getTokenSymbol(token.mint)}: Entry=$${entryPrice}, Current=$${currentPrice}, P&L=${unrealizedPnlPercent.toFixed(2)}%`);
+
+        positions.push({
+          id: token.mint,
+          mint: token.mint,
+          symbol: this.getTokenSymbol(token.mint),
+          amount: token.actualAmount,
+          entryPrice: Number(entryPrice),
+          currentPrice: Number(currentPrice),
+          unrealizedPnl: Number(unrealizedPnl),
+          unrealizedPnlPercent: Number(unrealizedPnlPercent),
+          entryTime: entryTime,
+          status: 'open'
+        });
+      }
+
+      logger.info(`Returning ${positions.length} open positions`);
+      return positions.sort((a, b) => Math.abs(b.unrealizedPnl) - Math.abs(a.unrealizedPnl)); // Sort by P&L magnitude
+    } catch (error) {
+      logger.error('Error getting open positions:', error);
+      return [];
+    }
+  }
+
+  // Helper method to get entry price for a token from trades
+  private async getTokenEntryPrice(mint: string): Promise<number> {
+    return new Promise((resolve) => {
+      this.db.get(
+        `SELECT AVG(price) as avg_price FROM trades WHERE mint = ? AND type = 'buy'`,
+        [mint],
+        (err, row: any) => {
+          if (err || !row || !row.avg_price) {
+            // If no trade history, assume current price as entry (new position)
+            resolve(0);
+          } else {
+            resolve(row.avg_price);
+          }
+        }
+      );
+    });
+  }
+
+  // Helper method to get entry time for a token from trades
+  private async getTokenEntryTime(mint: string): Promise<Date> {
+    return new Promise((resolve) => {
+      this.db.get(
+        `SELECT MIN(timestamp) as first_buy FROM trades WHERE mint = ? AND type = 'buy'`,
+        [mint],
+        (err, row: any) => {
+          if (err || !row || !row.first_buy) {
+            // If no trade history, use current time
+            resolve(new Date());
+          } else {
+            resolve(new Date(row.first_buy));
+          }
+        }
+      );
+    });
   }
 
   // Calculate comprehensive portfolio metrics with real data
@@ -614,9 +730,21 @@ export class PortfolioService {
     const knownTokens: Record<string, string> = {
       'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'USDC',
       'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 'USDT',
-      'So11111111111111111111111111111111111111112': 'SOL'
+      'So11111111111111111111111111111111111111112': 'SOL',
+      // Add some popular meme coins
+      'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': 'BONK',
+      'A8C3xuqscfmyLrte3VmTqrAq8kgMASius9AFNANwpump': 'PNUT',
+      'CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump': 'GOAT'
     };
-    return knownTokens[mint] || mint.slice(0, 8) + '...';
+    
+    // If it's a known token, return the symbol
+    if (knownTokens[mint]) {
+      return knownTokens[mint];
+    }
+    
+    // For unknown tokens, create a more "meme-like" symbol
+    const shortMint = mint.slice(0, 6).toUpperCase();
+    return `${shortMint}`;
   }
 
   close() {
