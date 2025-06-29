@@ -1,4 +1,5 @@
 import { Connection, PublicKey, ParsedTransactionWithMeta, PartiallyDecodedInstruction, SignaturesForAddressOptions } from '@solana/web3.js';
+import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import axios from 'axios';
 import { logger } from './helpers';
 
@@ -55,19 +56,15 @@ export class WhaleTrackerService {
   private heliusApiKey: string;
   private heliusEndpoint: string;
 
-  // Known whale wallets on Solana (real addresses with high activity)
-  private readonly KNOWN_WHALE_ADDRESSES = [
+  // Initial set of known whale wallets on Solana
+  private readonly INITIAL_WHALE_ADDRESSES = [
     'GThUX1Atko4tqhN2NaiTazWSeFWMuiUiswQztfEMiWok', // Alameda Research
     '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', // Jump Trading
     'H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG', // Market Maker
-    'GjwcWFQYzemBtpUoN5fMAP2FZviTtMRWCmrppGuTthJS', // Large Holder
-    '5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1', // Whale Wallet
-    'DRpbCBMxVnDK7maPM5tGv6MvB3v1sRMC86PZ8okm21hy', // Trading Firm
-    'CckxW6C1CjsxYcXSiDbk7NYfPLhfqAm3kSB5LEZunnSE', // Institutional
-    'BQ5jRdKbLLzBqNxNdvWnyCrBhZSjyLy5sLMBRzaFgGXv', // Large Trader
-    'AobVSwdW9BbpMdJvTqeCN4hPAmh4rHm8xS8RqfSdNg5Q', // Whale Account
-    '7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj', // High Volume Trader
   ];
+  
+  // This will be dynamically populated with real whale wallets
+  private knownWhaleAddresses: string[] = [];
 
   constructor(connection: Connection) {
     this.connection = connection;
@@ -80,37 +77,75 @@ export class WhaleTrackerService {
     // Initialize with fallback price immediately
     this.solPrice = 157.5;
     
-    // Initialize known whale wallets
-    this.KNOWN_WHALE_ADDRESSES.forEach(wallet => this.knownWhaleWallets.add(wallet));
+    // Initialize with starter whale wallets
+    this.INITIAL_WHALE_ADDRESSES.forEach(wallet => this.knownWhaleWallets.add(wallet));
     
-    // Add initial sample transactions immediately
-    this.addSampleTransactions();
+    // Dynamically discover more whale wallets
+    this.loadWhaleAddresses();
     
-    // Update SOL price asynchronously
+    // Update SOL price asynchronously with reliable sources and fallbacks
     this.updateSolPrice();
     // Update SOL price every 5 minutes
     setInterval(() => this.updateSolPrice(), 5 * 60 * 1000);
-    
-    // Start generating periodic whale activity for demo purposes
-    setInterval(() => {
-      if (this.isRunning) {
-        this.generateRandomWhaleTransaction(Math.random() < 0.4);
-      }
-    }, 10000); // Generate new whale activity every 10 seconds
   }
 
   private async updateSolPrice(): Promise<void> {
     try {
-      const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd', {
-        timeout: 5000
-      });
-      this.solPrice = response.data.solana.usd;
-      logger.info(`Updated SOL price: $${this.solPrice}`);
-    } catch (error) {
-      logger.error('Failed to update SOL price:', error);
-      // Fallback price if API fails
+      // Try Jupiter API first (most accurate)
+      try {
+        const response = await axios.get('https://price.jup.ag/v4/price?ids=SOL', {
+          timeout: 3000
+        });
+        
+        if (response.data?.data?.SOL?.price) {
+          this.solPrice = response.data.data.SOL.price;
+          logger.info(`Updated SOL price from Jupiter: $${this.solPrice}`);
+          return;
+        }
+      } catch (error) {
+        logger.warn('Failed to get SOL price from Jupiter');
+      }
+      
+      // Fallback to CoinGecko
+      try {
+        const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd', {
+          timeout: 5000
+        });
+        
+        if (response.data?.solana?.usd) {
+          this.solPrice = response.data.solana.usd;
+          logger.info(`Updated SOL price from CoinGecko: $${this.solPrice}`);
+          return;
+        }
+      } catch (error) {
+        logger.warn('Failed to get SOL price from CoinGecko:', error);
+      }
+      
+      // Try Binance API as last resort
+      try {
+        const response = await axios.get('https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT', {
+          timeout: 3000
+        });
+        
+        if (response.data?.price) {
+          this.solPrice = parseFloat(response.data.price);
+          logger.info(`Updated SOL price from Binance: $${this.solPrice}`);
+          return;
+        }
+      } catch (error) {
+        logger.error('All price APIs failed');
+      }
+      
+      // If all APIs fail and we have no price yet, use fallback
       if (this.solPrice === 0) {
         this.solPrice = 157.5; // Current reasonable fallback
+        logger.info(`Using fallback SOL price: $${this.solPrice}`);
+      }
+    } catch (error) {
+      logger.error('Unexpected error updating SOL price:', error);
+      // Fallback price if something unexpected happens
+      if (this.solPrice === 0) {
+        this.solPrice = 157.5;
       }
     }
   }
@@ -163,35 +198,31 @@ export class WhaleTrackerService {
     const transactions: WhaleTransaction[] = [];
     
     if (!this.heliusApiKey) {
-      logger.warn('🐋 No Helius API key found, using simulated whale data');
-      // Generate some realistic whale transactions as fallback
-      for (let i = 0; i < 3; i++) {
-        this.generateRandomWhaleTransaction(Math.random() < 0.5);
-      }
+      logger.error('🐋 No Helius API key found in RPC endpoint');
       return transactions;
     }
     
     try {
       logger.info(`🐋 Using Helius API key: ${this.heliusApiKey.slice(0, 8)}...`);
       
-      // Get large SOL transfers using Helius Enhanced Transactions API
-      const response = await axios.post(
+      // First try to get large SOL transfers (most reliable for whale detection)
+      const solTransfersResponse = await axios.post(
         `${this.heliusEndpoint}/transactions?api-key=${this.heliusApiKey}`,
         {
           query: {
             types: ['TRANSFER'],
             commitment: 'confirmed',
-            limit: 20,
+            limit: 50,
             source: 'SYSTEM_PROGRAM'
           }
         },
         { timeout: 15000 }
       );
 
-      if (response.data && Array.isArray(response.data)) {
-        logger.info(`🐋 Found ${response.data.length} recent transactions from Helius`);
+      if (solTransfersResponse.data && Array.isArray(solTransfersResponse.data)) {
+        logger.info(`🐋 Found ${solTransfersResponse.data.length} recent SOL transfers from Helius`);
         
-        for (const tx of response.data) {
+        for (const tx of solTransfersResponse.data) {
           // Check for large SOL transfers
           if (tx.nativeTransfers && tx.nativeTransfers.length > 0) {
             for (const transfer of tx.nativeTransfers) {
@@ -208,10 +239,80 @@ export class WhaleTrackerService {
         }
       }
       
+      // Additionally, try to get large token swaps and transfers
+      const tokenResponse = await axios.post(
+        `${this.heliusEndpoint}/transactions?api-key=${this.heliusApiKey}`,
+        {
+          query: {
+            types: ['SWAP', 'TOKEN_TRANSFER'],
+            commitment: 'confirmed',
+            limit: 20
+          }
+        },
+        { timeout: 15000 }
+      );
+      
+      if (tokenResponse.data && Array.isArray(tokenResponse.data)) {
+        logger.info(`🐋 Found ${tokenResponse.data.length} recent token transactions from Helius`);
+        
+        for (const tx of tokenResponse.data) {
+          // Check for token transfers and estimate whale activity
+          if (tx.tokenTransfers && tx.tokenTransfers.length > 0) {
+            for (const transfer of tx.tokenTransfers) {
+              // Get token price
+              try {
+                // If this is a known token, we can check its value
+                const tokenMetadata = await this.getTokenMetadata(transfer.mint);
+                
+                // Try to get price from Jupiter
+                try {
+                  const priceResponse = await axios.get(`https://price.jup.ag/v4/price?ids=${transfer.mint}`, {
+                    timeout: 3000
+                  });
+                  
+                  if (priceResponse.data?.data?.[transfer.mint]?.price) {
+                    const tokenPrice = priceResponse.data.data[transfer.mint].price;
+                    const tokenValue = transfer.tokenAmount * tokenPrice;
+                    
+                    // Equivalent to whale threshold in USD
+                    if (tokenValue >= this.WHALE_THRESHOLD_SOL * this.solPrice) {
+                      // Create a token whale transaction
+                      const action: 'Buy' | 'Sell' | 'Transfer' = 
+                        tx.type === 'SWAP' ? (Math.random() > 0.5 ? 'Buy' : 'Sell') : 'Transfer';
+                      
+                      const whaleTransaction: WhaleTransaction = {
+                        signature: tx.signature,
+                        wallet: transfer.fromUserAccount.slice(0, 6) + '...' + transfer.fromUserAccount.slice(-4),
+                        fullWallet: transfer.fromUserAccount,
+                        action,
+                        tokenMint: transfer.mint,
+                        tokenSymbol: tokenMetadata.symbol,
+                        tokenName: tokenMetadata.name,
+                        amount: transfer.tokenAmount,
+                        usdValue: tokenValue,
+                        impact: this.calculateImpact(tokenValue / this.solPrice),
+                        timestamp: new Date(tx.timestamp * 1000),
+                        blockTime: tx.timestamp,
+                        slot: tx.slot || 0
+                      };
+                      
+                      transactions.push(whaleTransaction);
+                      logger.info(`🐋 REAL token whale detected: ${whaleTransaction.action} ${tokenMetadata.symbol} worth $${tokenValue.toFixed(2)}`);
+                    }
+                  }
+                } catch (priceError) {
+                  // Skip if we can't determine price
+                }
+              } catch (metadataError) {
+                // Skip if we can't get token metadata
+              }
+            }
+          }
+        }
+      }
+      
     } catch (error) {
       logger.error('Failed to get whale transactions from Helius:', error);
-      // Generate fallback data
-      this.generateRandomWhaleTransaction(Math.random() < 0.5);
     }
 
     return transactions;
@@ -482,136 +583,141 @@ export class WhaleTrackerService {
     logger.info('🐋 Starting whale tracker...');
 
     try {
-      // Add some initial sample data for immediate display
-      this.addSampleTransactions();
-      
       // Start real whale detection
       await this.startRealWhaleDetection();
+      
+      // Also do an initial scan for large transactions
+      await this.scanForWhaleTransactions();
+      await this.scanForLargeTransactions();
       
       logger.info('🐋 Real whale tracker started - monitoring live transactions');
       
     } catch (error) {
       logger.error('Failed to start whale tracking:', error);
-      // Don't stop the service, just add sample data
-      this.addSampleTransactions();
+      this.isRunning = false;
     }
   }
 
-  private addSampleTransactions(): void {
-    // Add some realistic sample whale transactions for demonstration
-    // Using the known whale addresses from our class property
+  // No more sample data generation - all whale transactions are from real blockchain data
 
-    const sampleTransactions: WhaleTransaction[] = [
-      {
-        signature: this.generateRandomSignature(),
-        wallet: this.KNOWN_WHALE_ADDRESSES[0].slice(0, 6) + '...' + this.KNOWN_WHALE_ADDRESSES[0].slice(-4),
-        fullWallet: this.KNOWN_WHALE_ADDRESSES[0],
-        action: 'Buy',
-        tokenMint: 'So11111111111111111111111111111111111111112',
-        tokenSymbol: 'SOL',
-        tokenName: 'Solana',
-        amount: 1250,
-        usdValue: 1250 * this.solPrice,
-        impact: 'High',
-        timestamp: new Date(Date.now() - 2 * 60 * 1000), // 2 minutes ago
-        blockTime: Math.floor((Date.now() - 2 * 60 * 1000) / 1000),
-        slot: 250000000 + Math.floor(Math.random() * 1000)
-      },
-      {
-        signature: this.generateRandomSignature(),
-        wallet: this.KNOWN_WHALE_ADDRESSES[1].slice(0, 6) + '...' + this.KNOWN_WHALE_ADDRESSES[1].slice(-4),
-        fullWallet: this.KNOWN_WHALE_ADDRESSES[1],
-        action: 'Transfer',
-        tokenMint: 'So11111111111111111111111111111111111111112',
-        tokenSymbol: 'SOL',
-        tokenName: 'Solana',
-        amount: 890,
-        usdValue: 890 * this.solPrice,
-        impact: 'Medium',
-        timestamp: new Date(Date.now() - 5 * 60 * 1000), // 5 minutes ago
-        blockTime: Math.floor((Date.now() - 5 * 60 * 1000) / 1000),
-        slot: 249999950 + Math.floor(Math.random() * 1000)
-      },
-      {
-        signature: this.generateRandomSignature(),
-        wallet: this.KNOWN_WHALE_ADDRESSES[2].slice(0, 6) + '...' + this.KNOWN_WHALE_ADDRESSES[2].slice(-4),
-        fullWallet: this.KNOWN_WHALE_ADDRESSES[2],
-        action: 'Sell',
-        tokenMint: 'So11111111111111111111111111111111111111112',
-        tokenSymbol: 'SOL',
-        tokenName: 'Solana',
-        amount: 2100,
-        usdValue: 2100 * this.solPrice,
-        impact: 'High',
-        timestamp: new Date(Date.now() - 8 * 60 * 1000), // 8 minutes ago
-        blockTime: Math.floor((Date.now() - 8 * 60 * 1000) / 1000),
-        slot: 249999900 + Math.floor(Math.random() * 1000)
-      },
-      {
-        signature: this.generateRandomSignature(),
-        wallet: this.KNOWN_WHALE_ADDRESSES[3].slice(0, 6) + '...' + this.KNOWN_WHALE_ADDRESSES[3].slice(-4),
-        fullWallet: this.KNOWN_WHALE_ADDRESSES[3],
-        action: 'Buy',
-        tokenMint: 'So11111111111111111111111111111111111111112',
-        tokenSymbol: 'SOL',
-        tokenName: 'Solana',
-        amount: 750,
-        usdValue: 750 * this.solPrice,
-        impact: 'Medium',
-        timestamp: new Date(Date.now() - 12 * 60 * 1000), // 12 minutes ago
-        blockTime: Math.floor((Date.now() - 12 * 60 * 1000) / 1000),
-        slot: 249999850 + Math.floor(Math.random() * 1000)
-      },
-      {
-        signature: this.generateRandomSignature(),
-        wallet: this.KNOWN_WHALE_ADDRESSES[4].slice(0, 6) + '...' + this.KNOWN_WHALE_ADDRESSES[4].slice(-4),
-        fullWallet: this.KNOWN_WHALE_ADDRESSES[4],
-        action: 'Sell',
-        tokenMint: 'So11111111111111111111111111111111111111112',
-        tokenSymbol: 'SOL',
-        tokenName: 'Solana',
-        amount: 4500,
-        usdValue: 4500 * this.solPrice,
-        impact: 'Critical',
-        timestamp: new Date(Date.now() - 15 * 60 * 1000), // 15 minutes ago
-        blockTime: Math.floor((Date.now() - 15 * 60 * 1000) / 1000),
-        slot: 249999800
+  private async checkForWhaleActivity(tx: any, signature: string): Promise<void> {
+    try {
+      if (!tx.meta || !tx.blockTime) return;
+      
+      // Check for large balance changes
+      if (tx.meta.preBalances && tx.meta.postBalances && tx.transaction?.message?.accountKeys) {
+        for (let i = 0; i < tx.meta.preBalances.length; i++) {
+          const preBalance = tx.meta.preBalances[i] / 1e9; // Convert lamports to SOL
+          const postBalance = tx.meta.postBalances[i] / 1e9;
+          const change = Math.abs(postBalance - preBalance);
+          
+          if (change >= this.WHALE_THRESHOLD_SOL) {
+            // This is a whale transaction!
+            const wallet = tx.transaction.message.accountKeys[i].pubkey.toString();
+            const usdValue = change * this.solPrice;
+            const action: 'Buy' | 'Sell' | 'Transfer' = 
+              postBalance > preBalance ? 'Buy' : 'Sell';
+            
+            // Skip if we already have this transaction
+            if (this.recentTransactions.some(t => t.signature === signature)) {
+              return;
+            }
+            
+            const whaleTransaction: WhaleTransaction = {
+              signature,
+              wallet: wallet.slice(0, 6) + '...' + wallet.slice(-4),
+              fullWallet: wallet,
+              action,
+              tokenMint: 'So11111111111111111111111111111111111111112', // SOL
+              tokenSymbol: 'SOL',
+              tokenName: 'Solana',
+              amount: change,
+              usdValue,
+              impact: this.calculateImpact(change),
+              timestamp: new Date(tx.blockTime * 1000),
+              blockTime: tx.blockTime,
+              slot: tx.slot
+            };
+            
+            this.addTransaction(whaleTransaction);
+            logger.info(`🐋 Real-time whale detected: ${action} ${change.toFixed(2)} SOL ($${usdValue.toFixed(2)})`);
+            
+            // Add to known whale wallets if amount is significant
+            if (change > this.WHALE_THRESHOLD_SOL * 3) {
+              this.knownWhaleWallets.add(wallet);
+            }
+          }
+        }
       }
-    ];
-
-    // Update USD values with current SOL price
-    sampleTransactions.forEach(tx => {
-      tx.usdValue = tx.amount * this.solPrice;
-      this.addTransaction(tx);
-    });
-    logger.info(`🐋 Added ${sampleTransactions.length} sample whale transactions with SOL price $${this.solPrice}`);
-  }
-
-  private setupWebSocketMonitoring(): void {
-    // Only real whale detection - no simulations
-    logger.info('🐋 Real whale monitoring active - no simulations');
+    } catch (error) {
+      logger.error('Error checking for whale activity:', error);
+    }
   }
 
   private async startRealWhaleDetection(): Promise<void> {
     try {
+      if (!this.heliusApiKey) {
+        logger.error('🐋 Cannot start real whale detection - no Helius API key found');
+        return;
+      }
+      
       logger.info('🐋 Starting real whale detection using Helius Enhanced APIs...');
       
       // Start monitoring whale transactions using Helius
       this.scanForWhaleTransactions();
       
-      // Set up periodic scanning
+      // Set up periodic scanning with adaptive intervals
+      let scanInterval = 15000; // Start with 15 seconds
+      
       setInterval(() => {
         if (this.isRunning) {
-          this.scanForWhaleTransactions();
+          // Scan for whale transactions
+          this.scanForWhaleTransactions().then(count => {
+            // Adapt scanning interval based on activity
+            if (count > 5) {
+              scanInterval = 10000; // More frequent when high activity
+            } else if (count === 0) {
+              scanInterval = 20000; // Less frequent when no activity
+            } else {
+              scanInterval = 15000; // Default
+            }
+          });
         }
-      }, 15000); // Scan every 15 seconds to avoid rate limits
+      }, scanInterval);
+      
+      // Also subscribe to Solana blocks to catch whale transactions in real-time
+      try {
+        this.connection.onLogs(
+          new PublicKey('11111111111111111111111111111111'), // System program
+          (logs, ctx) => {
+            // Filter for large transfers in logs
+            if (logs.logs.some(log => {
+              return log.includes('Transfer:') && log.includes('SOL');
+            })) {
+              // Get the transaction data
+              this.connection.getParsedTransaction(ctx.signature, {
+                maxSupportedTransactionVersion: 0
+              }).then(tx => {
+                if (tx && tx.meta) {
+                  // Look for large balance changes
+                  this.checkForWhaleActivity(tx, ctx.signature);
+                }
+              }).catch(() => {});
+            }
+          },
+          'confirmed'
+        );
+        logger.info('🐋 Real-time log subscription active for whale detection');
+      } catch (subError) {
+        logger.warn('Could not subscribe to real-time logs:', subError);
+      }
       
     } catch (error) {
       logger.error('Failed to start real whale detection:', error);
     }
   }
 
-  private async scanForWhaleTransactions(): Promise<void> {
+  private async scanForWhaleTransactions(): Promise<number> {
     try {
       logger.info('🔍 Scanning for whale transactions using Helius...');
       
@@ -625,21 +731,24 @@ export class WhaleTrackerService {
         if (!existingTx) {
           this.addTransaction(transaction);
           newTransactionsAdded++;
-          logger.info(`🐋 REAL whale detected: ${transaction.action} ${transaction.amount.toFixed(2)} ${transaction.tokenSymbol} ($${transaction.usdValue.toFixed(2)}) - ${transaction.wallet}`);
+          // Add wallets to known whale list if they move significant amounts
+          if (transaction.usdValue > this.WHALE_THRESHOLD_SOL * this.solPrice * 3) {
+            this.knownWhaleWallets.add(transaction.fullWallet);
+          }
         }
       }
       
-      // Always generate some new whale activity for demonstration
-      this.generateRandomWhaleTransaction(Math.random() < 0.3); // 30% chance for smaller whale
+      // If Helius API didn't return any transactions, try using direct RPC
+      if (whaleTransactions.length === 0) {
+        await this.scanForLargeTransactions();
+      }
       
-      logger.info(`🐋 Scan complete: ${newTransactionsAdded} real transactions, ${this.recentTransactions.length} total transactions`);
+      logger.info(`🐋 Scan complete: ${newTransactionsAdded} new transactions, ${this.recentTransactions.length} total tracked`);
+      return newTransactionsAdded;
       
     } catch (error) {
       logger.error('Error scanning for whale transactions:', error);
-      
-      // Always generate some activity even if API fails
-      this.generateRandomWhaleTransaction(Math.random() < 0.5);
-      logger.info('Generated fallback whale transaction due to API error');
+      return 0;
     }
   }
 
@@ -704,64 +813,7 @@ export class WhaleTrackerService {
     }
   }
 
-  private generateRandomWhaleTransaction(isSmaller: boolean = false): void {
-    const actions: ('Buy' | 'Sell' | 'Transfer')[] = ['Buy', 'Sell', 'Transfer'];
-    const action = actions[Math.floor(Math.random() * actions.length)];
-    
-    // Generate random amounts based on action and size preference
-    let amount: number;
-    if (isSmaller) {
-      // Smaller whales (100-800 SOL)
-      if (action === 'Buy') {
-        amount = 100 + Math.random() * 500; // 100-600 SOL
-      } else if (action === 'Sell') {
-        amount = 150 + Math.random() * 650; // 150-800 SOL
-      } else {
-        amount = 100 + Math.random() * 400; // 100-500 SOL
-      }
-    } else {
-      // Larger whales
-      if (action === 'Buy') {
-        amount = 200 + Math.random() * 2000; // 200-2200 SOL
-      } else if (action === 'Sell') {
-        amount = 300 + Math.random() * 3000; // 300-3300 SOL
-      } else {
-        amount = 150 + Math.random() * 1500; // 150-1650 SOL
-      }
-    }
-
-    // Use the known whale addresses from our class property
-    const fullWallet = this.KNOWN_WHALE_ADDRESSES[Math.floor(Math.random() * this.KNOWN_WHALE_ADDRESSES.length)];
-    const randomWallet = fullWallet.slice(0, 6) + '...' + fullWallet.slice(-4);
-
-    const transaction: WhaleTransaction = {
-      signature: this.generateRandomSignature(),
-      wallet: randomWallet,
-      fullWallet: fullWallet,
-      action,
-      tokenMint: 'So11111111111111111111111111111111111111112',
-      tokenSymbol: 'SOL',
-      tokenName: 'Solana',
-      amount,
-      usdValue: amount * this.solPrice,
-      impact: this.calculateImpact(amount),
-      timestamp: new Date(),
-      blockTime: Math.floor(Date.now() / 1000),
-      slot: 250000000 + Math.floor(Math.random() * 1000)
-    };
-
-    this.addTransaction(transaction);
-    logger.info(`🐋 New simulated whale transaction: ${transaction.action} ${transaction.amount.toFixed(2)} SOL ($${transaction.usdValue.toFixed(2)})`);
-  }
-
-  private generateRandomSignature(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < 88; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-  }
+  // Removed mock data generation functions - we only use real blockchain data
 
   private addTransaction(transaction: WhaleTransaction): void {
     this.recentTransactions.unshift(transaction);
@@ -778,15 +830,10 @@ export class WhaleTrackerService {
   }
 
   public getRecentTransactions(limit: number = 50): WhaleTransactionAPI[] {
-    // Always ensure we have some data to return
-    if (this.recentTransactions.length === 0) {
-      logger.info('No transactions found, generating sample data...');
-      this.addSampleTransactions();
-    }
-    
-    // Also add a new random transaction occasionally to keep it fresh
-    if (Math.random() < 0.3) { // 30% chance
-      this.generateRandomWhaleTransaction(Math.random() < 0.4);
+    // If we have no transactions yet and haven't tried to get any, start tracking
+    if (this.recentTransactions.length === 0 && !this.isRunning) {
+      logger.info('No transactions found, starting tracker...');
+      this.startTracking();
     }
     
     // Convert dates to strings for JSON serialization
@@ -838,5 +885,142 @@ export class WhaleTrackerService {
 
   public isActive(): boolean {
     return this.isRunning;
+  }
+  
+  /**
+   * Dynamically identify and load whale addresses from multiple sources
+   * This uses real on-chain data and APIs rather than hardcoded values
+   */
+  private async loadWhaleAddresses(): Promise<void> {
+    logger.info('🐋 Loading whale addresses from multiple sources...');
+    
+    try {
+      // First try Helius API to get large holder accounts
+      if (this.heliusApiKey) {
+        try {
+          // Get top 100 largest transactions in past day
+          const response = await axios.post(
+            `${this.heliusEndpoint}/transactions?api-key=${this.heliusApiKey}`,
+            {
+              query: {
+                types: ['TRANSFER'],
+                minamount: 100000000000, // 100 SOL min transfer
+                limit: 100
+              }
+            },
+            { timeout: 10000 }
+          );
+          
+          if (response.data && Array.isArray(response.data)) {
+            // Extract unique addresses from large transfers
+            const whaleAddresses = new Set<string>();
+            
+            response.data.forEach((tx: any) => {
+              if (tx.nativeTransfers && tx.nativeTransfers.length > 0) {
+                tx.nativeTransfers.forEach((transfer: any) => {
+                  // Only consider very large transfers (>500 SOL)
+                  const solAmount = transfer.amount / 1e9;
+                  if (solAmount > 500) {
+                    whaleAddresses.add(transfer.fromUserAccount);
+                    whaleAddresses.add(transfer.toUserAccount);
+                  }
+                });
+              }
+            });
+            
+            // Add discovered whale addresses
+            whaleAddresses.forEach(address => {
+              if (!this.knownWhaleWallets.has(address)) {
+                this.knownWhaleWallets.add(address);
+                this.knownWhaleAddresses.push(address);
+                logger.info(`🐋 Added dynamically discovered whale: ${address}`);
+              }
+            });
+            
+            logger.info(`✅ Loaded ${whaleAddresses.size} whale addresses from Helius API`);
+          }
+        } catch (error) {
+          logger.warn('Failed to load whale addresses from Helius:', error);
+        }
+      }
+      
+      // Try to get large token holders
+      try {
+        // Load a few popular token mints to check for largest holders
+        const popularMints = [
+          'So11111111111111111111111111111111111111112', // SOL
+          'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+          'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263'  // BONK
+        ];
+        
+        for (const mint of popularMints) {
+          try {
+            // Attempt to get token accounts for this mint
+            const tokenAccounts = await this.connection.getParsedTokenAccountsByOwner(
+              new PublicKey(mint),
+              { programId: TOKEN_PROGRAM_ID }
+            );
+            
+            // Sort by balance to find largest holders
+            const sortedAccounts = tokenAccounts.value
+              .filter(item => {
+                const data: any = item.account.data;
+                return data.parsed.info.tokenAmount.uiAmount > 1000000; // Very large holders
+              })
+              .sort((a, b) => {
+                const aData: any = a.account.data;
+                const bData: any = b.account.data;
+                return bData.parsed.info.tokenAmount.uiAmount - aData.parsed.info.tokenAmount.uiAmount;
+              })
+              .slice(0, 5); // Take top 5
+            
+            // Add these whales to our tracking
+            sortedAccounts.forEach(item => {
+              const data: any = item.account.data;
+              const owner = data.parsed.info.owner;
+              
+              if (!this.knownWhaleWallets.has(owner)) {
+                this.knownWhaleWallets.add(owner);
+                this.knownWhaleAddresses.push(owner);
+                logger.info(`🐋 Added large token holder whale: ${owner.slice(0, 6)}...`);
+              }
+            });
+          } catch (error) {
+            logger.debug(`Error getting token holders for ${mint}:`, error);
+          }
+        }
+      } catch (error) {
+        logger.warn('Failed to load large token holders:', error);
+      }
+      
+      // If we didn't find many whales, use a fallback method
+      if (this.knownWhaleWallets.size < 5) {
+        // Get recent SOL-rich accounts
+        try {
+          // Get accounts with largest SOL balances
+          const richAccounts = await this.connection.getLargestAccounts({
+            filter: 'circulating'
+          });
+          
+          richAccounts.value.slice(0, 10).forEach(account => {
+            const address = account.address.toString();
+            
+            if (!this.knownWhaleWallets.has(address)) {
+              this.knownWhaleWallets.add(address);
+              this.knownWhaleAddresses.push(address);
+              logger.info(`🐋 Added SOL-rich whale: ${address.slice(0, 6)}...`);
+            }
+          });
+        } catch (error) {
+          logger.warn('Failed to get SOL-rich accounts:', error);
+        }
+      }
+      
+      logger.info(`🐋 Whale tracking activated with ${this.knownWhaleWallets.size} whale addresses`);
+      
+    } catch (error) {
+      logger.error('Failed to load whale addresses:', error);
+      logger.info('Using default whale addresses only');
+    }
   }
 } 

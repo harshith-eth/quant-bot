@@ -278,14 +278,56 @@ export class PortfolioService {
     } catch (error) {
       logger.error('Error fetching token prices:', error);
       const fallbackPrices: Record<string, number> = {};
+      
+      try {
+        // Try to get SOL price for better fallback calculations
+        const solPrice = await this.getSolPrice().catch(err => {
+          logger.warn(`Failed to get SOL price for fallback calculations: ${err}`);
+          return 0;
+        });
+        
+        // Try Birdeye API as a second fallback option
+        if (mints.length > 0) {
+          try {
+            const response = await axios.get(`https://public-api.birdeye.so/public/price?address=${mints.join(',')}`, {
+              timeout: 5000
+            });
+            
+            if (response.data?.data) {
+              const data = response.data.data;
+              for (const mint of mints) {
+                if (data[mint]) {
+                  fallbackPrices[mint] = data[mint].value || 0;
+                  logger.info(`Got Birdeye fallback price for ${mint}: $${fallbackPrices[mint]}`);
+                }
+              }
+            }
+          } catch (birdeyeErr) {
+            logger.warn(`Failed to fetch Birdeye prices: ${birdeyeErr}`);
+            // Continue to use other fallbacks
+          }
+        }
+      } catch (err) {
+        logger.error(`Error getting fallback token prices: ${err}`);
+      }
+      
+      // Apply final fallbacks for any tokens without prices
       mints.forEach(mint => {
-        // Set reasonable fallback prices for known tokens
-        if (mint === 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v') {
-          fallbackPrices[mint] = 1.0; // USDC
-        } else if (mint === 'So11111111111111111111111111111111111111112') {
-          fallbackPrices[mint] = 240; // SOL fallback
-        } else {
-          fallbackPrices[mint] = 0.0001;
+        if (fallbackPrices[mint] === undefined) {
+          // Set reasonable fallback prices for known tokens
+          if (mint === 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v') {
+            fallbackPrices[mint] = 1.0; // USDC
+          } else if (mint === 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB') {
+            fallbackPrices[mint] = 1.0; // USDT
+          } else if (mint === 'So11111111111111111111111111111111111111112') {
+            // Use cached price or last known value with a good default
+            const cachedSolPrice = this.priceCache?.data?.['So11111111111111111111111111111111111111112'];
+            fallbackPrices[mint] = cachedSolPrice || this.solPrice || 200; // Reasonable SOL fallback
+            logger.info(`Using SOL fallback price: $${fallbackPrices[mint]}`);
+          } else {
+            // For unknown tokens, use a very small value
+            fallbackPrices[mint] = 0.0001;
+          }
         }
       });
       return fallbackPrices;
@@ -602,20 +644,67 @@ export class PortfolioService {
     }
   }
 
-  // Get SOL price from Jupiter
+  // Get SOL price from multiple sources with fallbacks
   private async getSolPrice(): Promise<number> {
-    try {
-      const response = await axios.get('https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112', {
-        timeout: 10000 // 10 second timeout
-      });
-      if (response.data && response.data.data && response.data.data['So11111111111111111111111111111111111111112']) {
-        return response.data.data['So11111111111111111111111111111111111111112'].price;
+    // Try multiple price sources
+    const solMint = 'So11111111111111111111111111111111111111112';
+    const sources = [
+      // Jupiter API - Primary source
+      async (): Promise<number> => {
+        const response = await axios.get(`https://api.jup.ag/price/v2?ids=${solMint}`, {
+          timeout: 6000 // 6 second timeout
+        });
+        if (response.data?.data?.[solMint]?.price) {
+          return response.data.data[solMint].price;
+        }
+        throw new Error('Invalid Jupiter API response format');
+      },
+      
+      // Birdeye API - Secondary source
+      async (): Promise<number> => {
+        const response = await axios.get(`https://public-api.birdeye.so/public/price?address=${solMint}`, {
+          timeout: 5000 
+        });
+        if (response.data?.data?.[solMint]?.value) {
+          return response.data.data[solMint].value;
+        }
+        throw new Error('Invalid Birdeye API response format');
+      },
+      
+      // CoinGecko API - Tertiary source
+      async (): Promise<number> => {
+        const response = await axios.get(
+          'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd', 
+          { timeout: 7000 }
+        );
+        if (response.data?.solana?.usd) {
+          return response.data.solana.usd;
+        }
+        throw new Error('Invalid CoinGecko API response format');
       }
-      return 240; // Fallback SOL price
-    } catch (error) {
-      logger.error('Error fetching SOL price:', error);
-      return 240; // Fallback SOL price
+    ];
+    
+    // Try each source in sequence
+    for (let i = 0; i < sources.length; i++) {
+      try {
+        const price = await sources[i]();
+        if (price && price > 0) {
+          logger.debug(`Got SOL price $${price} from source ${i+1}`);
+          
+          // Cache the price for future fallbacks
+          this.solPrice = price;
+          return price;
+        }
+      } catch (error) {
+        logger.warn(`SOL price source ${i+1} failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
+    
+    // If all APIs fail, use an educated fallback based on recently cached value
+    // or a reasonable estimate (average SOL price for recent months)
+    const fallbackValue = this.solPrice || 150;
+    logger.warn(`All SOL price sources failed, using fallback price: $${fallbackValue}`);
+    return fallbackValue;
   }
 
   // Calculate trading statistics from database
@@ -978,34 +1067,58 @@ export class PortfolioService {
     } catch (error) {
       logger.error('Error calculating risk management data:', error);
       
-      // Return default risk data
+      // In case of error, still try to calculate each component individually
+      // instead of returning fully mocked data
+      
+      let var95 = 0;
+      let riskLevel = 5;
+      let rugDetection = {
+        lpRemovalRisk: 'MODERATE' as const,
+        sellPressure: 'MODERATE' as const,
+        rugProbability: 5
+      };
+      let alphaSignals = {
+        fomoLevel: 'MODERATE' as const,
+        degenScore: 5,
+        normieFear: 'MODERATE' as const,
+        apeFactor: 'SEND' as const
+      };
+      let liquidationMatrix = {
+        recentLiquidations: [] as {address: string; amount: number; timeAgo: string}[],
+        ngmiCount: 0,
+        copeLevel: 'MODERATE' as const
+      };
+      let portfolioRisk = {
+        concentration: 50,
+        volatility: 50,
+        drawdown: 5
+      };
+      
+      // Try to get valid portfolio metrics even if the main function failed
+      try {
+        const backupMetrics = await this.getPortfolioMetrics();
+        const backupPositions = await this.getOpenPositions();
+        const backupTrades = await this.getTradeHistory(10);
+        
+        // Calculate individual components with error handling
+        try { var95 = this.calculateVaR(backupMetrics, backupPositions, backupTrades); } catch {}
+        try { riskLevel = this.calculateRiskLevel(backupMetrics, backupPositions); } catch {}
+        try { rugDetection = await this.analyzeRugDetection(backupPositions); } catch {}
+        try { alphaSignals = this.calculateAlphaSignals(backupMetrics, backupPositions); } catch {}
+        try { liquidationMatrix = this.generateLiquidationMatrix(backupTrades, backupMetrics); } catch {}
+        try { portfolioRisk = this.calculatePortfolioRisk(backupPositions, backupMetrics); } catch {}
+        
+      } catch (backupError) {
+        logger.error('Could not get backup portfolio data:', backupError);
+      }
+      
       return {
-        var95: -25420,
-        riskLevel: 7,
-        rugDetection: {
-          lpRemovalRisk: 'CRITICAL',
-          sellPressure: 'MODERATE',
-          rugProbability: 7.5
-        },
-        alphaSignals: {
-          fomoLevel: 'EXTREME',
-          degenScore: 9.2,
-          normieFear: 'HIGH',
-          apeFactor: 'FULL SEND'
-        },
-        liquidationMatrix: {
-          recentLiquidations: [
-            { address: '0x7d..ff3', amount: -42000, timeAgo: '2m ago' },
-            { address: '0x3a..b21', amount: -69400, timeAgo: '5m ago' }
-          ],
-          ngmiCount: 1337,
-          copeLevel: 'MAXIMUM'
-        },
-        portfolioRisk: {
-          concentration: 75,
-          volatility: 85,
-          drawdown: 12.5
-        }
+        var95,
+        riskLevel,
+        rugDetection,
+        alphaSignals,
+        liquidationMatrix,
+        portfolioRisk
       };
     }
   }
@@ -1093,10 +1206,15 @@ export class PortfolioService {
     return Math.min(Math.max(riskScore, 1), 10);
   }
 
-  // Analyze rug detection signals
+  // Analyze rug detection signals using on-chain data and real API calls
   private async analyzeRugDetection(positions: Position[]): Promise<RiskManagementData['rugDetection']> {
     let totalRugScore = 0;
     let positionCount = 0;
+    
+    // Cache network calls to avoid overwhelming APIs
+    const lpRiskCache: Record<string, number> = {};
+    const sellPressureCache: Record<string, number> = {};
+    const creationCache: Record<string, Date> = {};
     
     for (const position of positions) {
       positionCount++;
@@ -1115,12 +1233,44 @@ export class PortfolioService {
       const ageHours = (Date.now() - new Date(position.entryTime).getTime()) / (1000 * 60 * 60);
       if (ageHours < 1) positionRugScore += 1;
       
+      // Check liquidity provider risk (if the token has locked liquidity)
+      try {
+        if (!lpRiskCache[position.mint]) {
+          lpRiskCache[position.mint] = await this.checkLiquidityPoolRisk(position.mint);
+        }
+        positionRugScore += lpRiskCache[position.mint];
+      } catch (error) {
+        logger.warn(`Failed to check LP risk for ${position.mint}:`, error);
+      }
+      
+      // Check sell pressure using DexScreener or other Solana DEX APIs
+      try {
+        if (!sellPressureCache[position.mint]) {
+          sellPressureCache[position.mint] = await this.checkSellPressure(position.mint);
+        }
+        positionRugScore += sellPressureCache[position.mint];
+      } catch (error) {
+        logger.warn(`Failed to check sell pressure for ${position.mint}:`, error);
+      }
+      
+      // Check token account authority (is it renounced)
+      try {
+        const mintInfo = await this.connection.getParsedAccountInfo(new PublicKey(position.mint));
+        if (mintInfo.value?.data && 'parsed' in mintInfo.value.data) {
+          const parsedData = mintInfo.value.data.parsed;
+          const isMintable = parsedData.info.mintAuthority !== null;
+          if (isMintable) positionRugScore += 2; // Can still mint tokens = higher risk
+        }
+      } catch (error) {
+        logger.warn(`Failed to check token authority for ${position.mint}:`, error);
+      }
+      
       totalRugScore += positionRugScore;
     }
     
     const avgRugScore = positionCount > 0 ? totalRugScore / positionCount : 0;
     
-    // Determine risk levels
+    // Determine risk levels based on actual on-chain data analysis
     const lpRemovalRisk = avgRugScore > 4 ? 'CRITICAL' : avgRugScore > 2.5 ? 'HIGH' : avgRugScore > 1 ? 'MODERATE' : 'LOW';
     const sellPressure = avgRugScore > 3 ? 'CRITICAL' : avgRugScore > 2 ? 'HIGH' : avgRugScore > 1 ? 'MODERATE' : 'LOW';
     const rugProbability = Math.min(avgRugScore * 1.5, 10);
@@ -1130,6 +1280,122 @@ export class PortfolioService {
       sellPressure,
       rugProbability
     };
+  }
+  
+  // Helper method to check liquidity pool risk by analyzing on-chain data
+  private async checkLiquidityPoolRisk(mint: string): Promise<number> {
+    try {
+      // Try DexScreener first to check liquidity pool info
+      const response = await axios.get(`https://api.dexscreener.com/latest/dex/tokens/${mint}`, {
+        timeout: 5000
+      });
+      
+      if (response.data?.pairs?.length > 0) {
+        const pair = response.data.pairs[0];
+        
+        // Check liquidity amount (low liquidity = higher risk)
+        const liquidityUsd = pair.liquidity?.usd || 0;
+        if (liquidityUsd < 1000) return 3;
+        if (liquidityUsd < 5000) return 2;
+        if (liquidityUsd < 20000) return 1;
+        
+        // Check if liquidity is locked or burned
+        if (pair.liquidity?.locked === true) return 0; // Low risk if liquidity is locked
+        
+        // Check price impact (high price impact = higher risk)
+        if (pair.priceUsd) {
+          const priceImpact = this.estimatePriceImpact(liquidityUsd, pair.priceUsd);
+          if (priceImpact > 20) return 3; // >20% price impact on $1000 trade
+          if (priceImpact > 10) return 2; // >10% price impact
+          if (priceImpact > 5) return 1;  // >5% price impact
+        }
+      }
+      
+      // Default moderate risk score if we couldn't determine specifics
+      return 1;
+    } catch (error) {
+      logger.warn(`Failed to check liquidity pool risk for ${mint}:`, error);
+      return 1.5; // Default moderate-high risk if API call fails
+    }
+  }
+  
+  // Estimate price impact for a $1000 trade
+  private estimatePriceImpact(liquidityUsd: number, tokenPrice: number): number {
+    if (liquidityUsd === 0 || tokenPrice === 0) return 100;
+    
+    // Simple approximation of price impact for a $1000 trade
+    // Based on the constant product formula x * y = k
+    const impactPercent = (1000 / liquidityUsd) * 100;
+    return Math.min(impactPercent, 100); // Cap at 100%
+  }
+  
+  // Check sell pressure using historical trade data
+  private async checkSellPressure(mint: string): Promise<number> {
+    try {
+      // First try to get data from trade history in our database
+      return new Promise<number>((resolve, reject) => {
+        this.db.all(
+          `SELECT type, COUNT(*) as count FROM trades WHERE mint = ? AND timestamp > datetime('now', '-24 hours') GROUP BY type`,
+          [mint],
+          (err, rows: any[]) => {
+            if (err) {
+              reject(err);
+              return;
+            }
+            
+            let buys = 0;
+            let sells = 0;
+            
+            for (const row of rows) {
+              if (row.type === 'buy') buys = row.count;
+              else if (row.type === 'sell') sells = row.count;
+            }
+            
+            const totalTrades = buys + sells;
+            if (totalTrades === 0) {
+              resolve(1); // Default moderate risk if no trade data
+              return;
+            }
+            
+            const sellRatio = sells / totalTrades;
+            if (sellRatio > 0.8) resolve(3); // High sell pressure
+            else if (sellRatio > 0.6) resolve(2); // Moderate sell pressure
+            else if (sellRatio > 0.4) resolve(1); // Some sell pressure
+            else resolve(0); // Low sell pressure
+          }
+        );
+      }).catch(async () => {
+        // If database query fails, try DexScreener for recent trades
+        try {
+          const response = await axios.get(`https://api.dexscreener.com/latest/dex/tokens/${mint}`, {
+            timeout: 5000
+          });
+          
+          if (response.data?.pairs?.[0]?.txns) {
+            const txns = response.data.pairs[0].txns;
+            const buys = txns.h24?.buys || 0;
+            const sells = txns.h24?.sells || 0;
+            
+            const totalTrades = buys + sells;
+            if (totalTrades === 0) return 1;
+            
+            const sellRatio = sells / totalTrades;
+            if (sellRatio > 0.8) return 3;
+            else if (sellRatio > 0.6) return 2;
+            else if (sellRatio > 0.4) return 1;
+            else return 0;
+          }
+          
+          return 1; // Default if no transaction data available
+        } catch (dexError) {
+          logger.warn(`Failed to get DexScreener data for ${mint}:`, dexError);
+          return 1; // Default moderate risk
+        }
+      });
+    } catch (error) {
+      logger.warn(`Failed to check sell pressure for ${mint}:`, error);
+      return 1; // Default moderate risk
+    }
   }
 
   // Calculate alpha signals
@@ -1170,31 +1436,47 @@ export class PortfolioService {
 
   // Generate liquidation matrix data
   private generateLiquidationMatrix(trades: any[], portfolioMetrics: PortfolioMetrics): RiskManagementData['liquidationMatrix'] {
-    // Find recent large losses from trades
+    // Find recent large losses from trades based on actual trade data
     const recentLiquidations = trades
-      .filter(trade => trade.type === 'sell' && trade.value < -1000) // Large losses
-      .slice(0, 5) // Last 5
+      .filter(trade => trade.type === 'sell' && trade.value < 0) // Any negative selling trades
+      .sort((a, b) => a.value - b.value) // Sort by most negative first
+      .slice(0, 5) // Take worst 5
       .map(trade => {
         const timeAgo = this.getTimeAgo(new Date(trade.timestamp));
+        // Format address properly for Solana addresses
         return {
-          address: `0x${trade.mint.slice(0, 2)}..${trade.mint.slice(-3)}`,
+          address: trade.mint.slice(0, 4) + '..' + trade.mint.slice(-4),
           amount: trade.value,
           timeAgo
         };
       });
     
-    // Calculate NGMI count (number of losing trades)
-    const ngmiCount = trades.filter(trade => trade.type === 'sell' && trade.value < 0).length;
+    // Calculate loss count (number of losing trades)
+    const losingTradeCount = trades.filter(trade => trade.type === 'sell' && trade.value < 0).length;
     
-    // Cope level based on recent performance
+    // Determine risk level based on actual portfolio performance
     let copeLevel: 'LOW' | 'MODERATE' | 'HIGH' | 'MAXIMUM' = 'LOW';
-    if (portfolioMetrics.totalGainPercent < -30) copeLevel = 'MAXIMUM';
-    else if (portfolioMetrics.totalGainPercent < -15) copeLevel = 'HIGH';
-    else if (portfolioMetrics.totalGainPercent < -5) copeLevel = 'MODERATE';
+    
+    // Determine based on portfolio metrics and trade data
+    const recentTrades = trades.filter(t => {
+      const tradeTime = new Date(t.timestamp).getTime();
+      const now = Date.now();
+      return (now - tradeTime) < 7 * 24 * 60 * 60 * 1000; // Last 7 days
+    });
+    
+    // Calculate recent win/loss ratio
+    const recentWins = recentTrades.filter(t => t.type === 'sell' && t.value > 0).length;
+    const recentLosses = recentTrades.filter(t => t.type === 'sell' && t.value < 0).length;
+    const winRatio = recentWins + recentLosses > 0 ? recentWins / (recentWins + recentLosses) : 0.5;
+    
+    // Set cope level based on win ratio and portfolio performance
+    if (winRatio < 0.2 || portfolioMetrics.totalGainPercent < -30) copeLevel = 'MAXIMUM';
+    else if (winRatio < 0.35 || portfolioMetrics.totalGainPercent < -15) copeLevel = 'HIGH';
+    else if (winRatio < 0.5 || portfolioMetrics.totalGainPercent < -5) copeLevel = 'MODERATE';
     
     return {
       recentLiquidations,
-      ngmiCount: Math.max(ngmiCount, 1337), // Meme number as minimum
+      ngmiCount: losingTradeCount, // Actual count of losing trades
       copeLevel
     };
   }

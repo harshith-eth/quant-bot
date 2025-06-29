@@ -86,7 +86,7 @@ QuantBot v3.0 is designed to navigate the chaotic and highly speculative world o
 
 - **🎛️ Enterprise Web Dashboard**: Military-grade control center with real-time analytics
 - **⚡ Microsecond Execution**: Sub-second trade execution with advanced retry logic
-- **🧠 AI-Powered Analysis**: Machine learning algorithms for market prediction
+- **🧠 AI-Powered Analysis**: Advanced NLP sentiment analysis with transformer models
 - **🐋 Whale Tracking**: Real-time monitoring of large wallet movements
 - **🛡️ Advanced Risk Management**: Multi-layered protection systems
 - **📊 Real-Time Analytics**: Live portfolio tracking and performance metrics
@@ -1292,6 +1292,18 @@ curl http://localhost:3000
 
 ### 🔧 Advanced Installation Options
 
+#### NLP Sentiment Analysis Setup
+```bash
+# Install Python dependencies for NLP sentiment analysis
+pip install nltk transformers httpx
+
+# Set Hugging Face API key for advanced NLP capabilities
+export HUGGINGFACE_API_KEY=your_api_key_here
+
+# Or add to your .env file:
+HUGGINGFACE_API_KEY=your_api_key_here
+```
+
 #### Docker Installation (Coming Soon)
 ```bash
 # Build and run with Docker
@@ -1329,6 +1341,8 @@ npm run deploy:development
 | `RPC_ENDPOINT` | Solana RPC HTTP endpoint | Helius RPC |
 | `RPC_WEBSOCKET_ENDPOINT` | Solana WebSocket endpoint | Helius WSS |
 | `COMMITMENT_LEVEL` | Transaction commitment level | `confirmed` |
+| `TWITTER_BEARER_TOKEN` | Twitter API bearer token | - |
+| `HUGGINGFACE_API_KEY` | Hugging Face API key for NLP | - |
 
 ### 🤖 Bot Configuration
 
@@ -1426,9 +1440,10 @@ npm run deploy:development
 
 1. **🔍 Pool Detection**: Monitor new liquidity pools in real-time
 2. **📊 Filter Application**: Apply comprehensive token safety filters
-3. **⚡ Rapid Execution**: Execute trades within milliseconds of detection
-4. **📈 Position Management**: Monitor and manage open positions
-5. **💰 Profit Realization**: Automatic profit-taking and loss mitigation
+3. **🧠 Sentiment Analysis**: Analyze social signals with advanced NLP
+4. **⚡ Rapid Execution**: Execute trades within milliseconds of detection
+5. **📈 Position Management**: Monitor and manage open positions
+6. **💰 Profit Realization**: Automatic profit-taking and loss mitigation
 
 ### Filter Categories
 
@@ -1441,6 +1456,8 @@ npm run deploy:development
 - **Liquidity Requirements**: Minimum and maximum pool size validation
 - **Social Verification**: Presence of official social media links
 - **Burn Verification**: Liquidity pool burn confirmation
+- **NLP Sentiment**: Advanced sentiment analysis using transformer models
+- **Social Confidence**: Algorithmic confidence scoring of sentiment data
 
 #### 📈 Performance Filters
 - **Volume Thresholds**: Minimum trading volume requirements

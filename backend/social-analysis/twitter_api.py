@@ -2,6 +2,17 @@
 TWITTER API CLIENT - REAL-TIME SOCIAL SIGNALS
 ============================================
 Connects to the Twitter/X API to gather social sentiment data.
+
+Features:
+- Real-time tweet analysis for crypto tokens
+- Advanced NLP-based sentiment analysis
+- Multi-tier sentiment processing:
+  1. Transformer models (Hugging Face API)
+  2. VADER sentiment analysis
+  3. Keyword-based fallback analysis
+- Confidence scoring for sentiment reliability
+- Engagement metrics calculation
+- Top tweet identification and ranking
 """
 
 import asyncio
@@ -10,6 +21,7 @@ import httpx
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Union
 from core.config import settings
+from .nlp_sentiment import NLPSentimentAnalyzer
 
 logger = logging.getLogger("TWITTER_API")
 
@@ -29,6 +41,11 @@ class TwitterClient:
         self.cache = {}
         self.cache_expiry = {}
         self.cache_duration = timedelta(minutes=15)  # Cache results for 15 minutes
+        
+        # Initialize NLP sentiment analyzer
+        self.nlp_analyzer = NLPSentimentAnalyzer()
+        if settings.HUGGINGFACE_API_KEY:
+            self.nlp_analyzer.set_api_key(settings.HUGGINGFACE_API_KEY)
         
         logger.info("🐦 TWITTER API CLIENT INITIALIZED")
     
@@ -90,7 +107,7 @@ class TwitterClient:
             return None
     
     async def analyze_token_sentiment(self, token_name: str, symbol: str) -> Dict[str, Union[float, int, List]]:
-        """Analyze sentiment for a specific token"""
+        """Analyze sentiment for a specific token using advanced NLP techniques"""
         # Build search query with token name and symbol
         query = f"({token_name} OR {symbol}) (crypto OR token OR sol OR solana) -is:retweet"
         
@@ -106,6 +123,7 @@ class TwitterClient:
                 "neutral_count": 0,
                 "positive_count": 0,
                 "engagement_score": 0.0,
+                "confidence": 0.0,
                 "top_tweets": []
             }
         
@@ -117,17 +135,8 @@ class TwitterClient:
         total_retweets = 0
         total_replies = 0
         
-        # Simple sentiment analysis based on keywords
-        positive_keywords = ["bullish", "moon", "pump", "buy", "long", "green", "hodl", "gem", "100x", "1000x"]
-        negative_keywords = ["bearish", "dump", "sell", "short", "red", "scam", "rug", "ponzi", "avoid"]
-        
-        positive_count = 0
-        negative_count = 0
-        neutral_count = 0
-        
-        # Process each tweet
+        # Process engagement metrics for each tweet
         for tweet in tweets:
-            # Calculate engagement
             metrics = tweet.get("public_metrics", {})
             likes = metrics.get("like_count", 0)
             retweets = metrics.get("retweet_count", 0)
@@ -136,24 +145,16 @@ class TwitterClient:
             total_likes += likes
             total_retweets += retweets
             total_replies += replies
-            
-            # Simple sentiment analysis
-            text = tweet.get("text", "").lower()
-            pos_matches = sum(1 for keyword in positive_keywords if keyword in text)
-            neg_matches = sum(1 for keyword in negative_keywords if keyword in text)
-            
-            if pos_matches > neg_matches:
-                positive_count += 1
-            elif neg_matches > pos_matches:
-                negative_count += 1
-            else:
-                neutral_count += 1
         
-        # Calculate sentiment score (-1 to 1)
-        total_tweets = len(tweets)
-        sentiment_score = (positive_count - negative_count) / total_tweets if total_tweets > 0 else 0
+        # Use advanced NLP sentiment analysis
+        logger.info(f"🧠 Running advanced NLP sentiment analysis on {len(tweets)} tweets for {symbol}")
+        formatted_tweets = [{"text": tweet.get("text", "")} for tweet in tweets]
+        
+        # Get sentiment analysis results using the NLP analyzer
+        nlp_results = await self.nlp_analyzer.analyze_tweets(formatted_tweets, symbol)
         
         # Calculate engagement score
+        total_tweets = len(tweets)
         engagement_score = (total_likes * 1 + total_retweets * 2 + total_replies * 0.5) / total_tweets if total_tweets > 0 else 0
         
         # Get top 5 tweets by engagement
@@ -180,12 +181,13 @@ class TwitterClient:
             })
         
         return {
-            "tweet_count": total_tweets,
-            "sentiment_score": round(sentiment_score, 2),
-            "negative_count": negative_count,
-            "neutral_count": neutral_count,
-            "positive_count": positive_count,
+            "tweet_count": nlp_results["tweet_count"],
+            "sentiment_score": nlp_results["sentiment_score"],
+            "negative_count": nlp_results["negative_count"],
+            "neutral_count": nlp_results["neutral_count"],
+            "positive_count": nlp_results["positive_count"],
             "engagement_score": round(engagement_score, 2),
+            "confidence": nlp_results["confidence"],
             "top_tweets": formatted_top_tweets
         }
     

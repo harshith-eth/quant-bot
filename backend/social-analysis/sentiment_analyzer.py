@@ -2,6 +2,13 @@
 SENTIMENT ANALYZER - REAL SIGNAL GENERATION
 =========================================
 Analyzes social media sentiment data to generate trading signals.
+
+Features:
+- Advanced NLP sentiment analysis using transformer models
+- Multi-stage sentiment processing with Hugging Face API
+- Fallback mechanisms with VADER and keyword-based analysis
+- Social media trend detection and signal generation
+- Confidence scoring for sentiment reliability
 """
 
 import asyncio
@@ -11,6 +18,7 @@ from typing import Dict, List, Optional
 import httpx
 from core.config import settings
 from .twitter_api import TwitterClient
+from .nlp_sentiment import NLPSentimentAnalyzer
 
 logger = logging.getLogger("SENTIMENT_ANALYZER")
 
@@ -19,6 +27,10 @@ class SentimentAnalyzer:
     
     def __init__(self):
         self.twitter_client = TwitterClient()
+        self.nlp_analyzer = NLPSentimentAnalyzer()
+        if settings.HUGGINGFACE_API_KEY:
+            self.nlp_analyzer.set_api_key(settings.HUGGINGFACE_API_KEY)
+        
         self.sentiment_data = {}
         self.signals = []
         self.last_update = datetime.now()
@@ -28,7 +40,7 @@ class SentimentAnalyzer:
             "last_update": datetime.now()
         }
         
-        logger.info("😊 SENTIMENT ANALYZER INITIALIZED")
+        logger.info("😊 SENTIMENT ANALYZER INITIALIZED with NLP capabilities")
     
     async def initialize(self):
         """Initialize sentiment analyzer"""
@@ -110,16 +122,21 @@ class SentimentAnalyzer:
             previous = trends[0]["score"]
             change = current - previous
             
-            # Generate signals based on sentiment changes
+            # Get the sentiment confidence from the data if available
+            sentiment_confidence = 0.7  # Default confidence level
+            if symbol in self.sentiment_data and "confidence" in self.sentiment_data[symbol]:
+                sentiment_confidence = self.sentiment_data[symbol]["confidence"]
+
+            # Generate signals based on sentiment changes with adjusted confidence based on NLP analysis
             if change > 0.3:  # Significant positive change
                 signals.append({
                     "id": f"SENT_{len(signals)+1:03d}",
                     "type": "BUY",
                     "token": f"${symbol}",
-                    "source": "SOCIAL_SENTIMENT",
-                    "confidence": min(95, 70 + int(change * 100)),
-                    "priority": "HIGH" if current > 0.5 else "MEDIUM",
-                    "reasoning": f"Positive sentiment surge on Twitter (+{change:.2f})",
+                    "source": "SOCIAL_SENTIMENT_NLP",
+                    "confidence": min(95, 65 + int(change * 100) + int(sentiment_confidence * 20)),
+                    "priority": "HIGH" if current > 0.5 and sentiment_confidence > 0.7 else "MEDIUM",
+                    "reasoning": f"NLP detected positive sentiment surge on Twitter (+{change:.2f}, {int(sentiment_confidence * 100)}% confidence)",
                     "time_ago": "Just now",
                     "created_at": datetime.now()
                 })
@@ -128,25 +145,30 @@ class SentimentAnalyzer:
                     "id": f"SENT_{len(signals)+1:03d}",
                     "type": "SELL",
                     "token": f"${symbol}",
-                    "source": "SOCIAL_SENTIMENT",
-                    "confidence": min(95, 70 + int(abs(change) * 100)),
-                    "priority": "HIGH" if current < -0.3 else "MEDIUM",
-                    "reasoning": f"Negative sentiment spike on Twitter ({change:.2f})",
+                    "source": "SOCIAL_SENTIMENT_NLP",
+                    "confidence": min(95, 65 + int(abs(change) * 100) + int(sentiment_confidence * 20)),
+                    "priority": "HIGH" if current < -0.3 and sentiment_confidence > 0.7 else "MEDIUM",
+                    "reasoning": f"NLP detected negative sentiment spike on Twitter ({change:.2f}, {int(sentiment_confidence * 100)}% confidence)",
                     "time_ago": "Just now",
                     "created_at": datetime.now()
                 })
             
-            # Also check for high tweet count with positive sentiment
+            # Also check for high tweet count with positive sentiment, using NLP confidence
             tweet_count = trends[-1]["tweets"]
             if tweet_count > 50 and current > 0.3:
+                # Get sentiment confidence
+                sentiment_confidence = 0.7  # Default
+                if symbol in self.sentiment_data and "confidence" in self.sentiment_data[symbol]:
+                    sentiment_confidence = self.sentiment_data[symbol]["confidence"]
+                    
                 signals.append({
                     "id": f"SENT_{len(signals)+1:03d}",
                     "type": "MONITOR",
                     "token": f"${symbol}",
-                    "source": "SOCIAL_SENTIMENT",
-                    "confidence": min(95, 65 + int(tweet_count / 10)),
-                    "priority": "MEDIUM",
-                    "reasoning": f"High Twitter activity with positive sentiment ({tweet_count} tweets)",
+                    "source": "SOCIAL_SENTIMENT_NLP",
+                    "confidence": min(95, 60 + int(tweet_count / 10) + int(sentiment_confidence * 20)),
+                    "priority": "HIGH" if sentiment_confidence > 0.8 else "MEDIUM",
+                    "reasoning": f"NLP detected high Twitter activity with positive sentiment ({tweet_count} tweets, {int(sentiment_confidence * 100)}% confidence)",
                     "time_ago": "Just now",
                     "created_at": datetime.now()
                 })
