@@ -5,6 +5,7 @@ import { PortfolioService } from './portfolio-service';
 import { MemeScannerService } from './meme-scanner';
 import { WhaleTrackerService } from './whale-tracker';
 import { SignalFeedService } from './signal-feed-service';
+import { socialSentiment } from './social_sentiment_integration';
 import bs58 from 'bs58';
 import dotenv from 'dotenv';
 import WebSocket from 'ws';
@@ -150,6 +151,103 @@ function broadcastTradeLog(log: TradeLog) {
   });
 
   console.log(`📡 Broadcasted trade log to ${tradeLogClients.size} clients: ${log.message}`);
+}
+
+// Enhanced trading status tracking
+interface TradingStatus {
+  id: string;
+  mint: string;
+  symbol: string;
+  name: string;
+  status: 'analyzing' | 'preparing' | 'executing' | 'confirming' | 'completed' | 'failed';
+  stage: string;
+  progress: number;
+  startTime: Date;
+  lastUpdate: Date;
+  errorMessage?: string;
+  transactionSignature?: string;
+  amount?: number;
+  price?: number;
+  slippage?: number;
+}
+
+let currentTradingStatus: TradingStatus | null = null;
+const tradingHistory: TradingStatus[] = [];
+
+// Function to update trading status and broadcast to clients
+function updateTradingStatus(update: Partial<TradingStatus>) {
+  if (currentTradingStatus) {
+    currentTradingStatus = {
+      ...currentTradingStatus,
+      ...update,
+      lastUpdate: new Date()
+    };
+    
+    // Broadcast trading status update
+    const message = JSON.stringify({ 
+      type: 'tradingStatus', 
+      data: currentTradingStatus 
+    });
+    
+    tradeLogClients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        try {
+          client.send(message);
+        } catch (error) {
+          console.error('Failed to send trading status to client:', error);
+        }
+      }
+    });
+    
+    console.log(`📊 Trading Status Updated: ${currentTradingStatus.symbol} - ${currentTradingStatus.status} - ${currentTradingStatus.stage}`);
+  }
+}
+
+// Function to start new trading session
+function startTradingSession(mint: string, symbol: string, name: string) {
+  const tradingId = `trade-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  
+  currentTradingStatus = {
+    id: tradingId,
+    mint,
+    symbol,
+    name,
+    status: 'analyzing',
+    stage: 'Token Analysis',
+    progress: 0,
+    startTime: new Date(),
+    lastUpdate: new Date()
+  };
+  
+  updateTradingStatus({});
+  
+  addTradeLog('info', `🔍 Starting analysis for ${symbol} (${name})`);
+  addTradeLog('info', `📊 Token: ${mint.slice(0, 8)}...${mint.slice(-8)}`);
+  
+  return tradingId;
+}
+
+// Function to complete trading session
+function completeTradingSession(success: boolean, errorMessage?: string) {
+  if (currentTradingStatus) {
+    const finalStatus = success ? 'completed' : 'failed';
+    updateTradingStatus({
+      status: finalStatus,
+      progress: 100,
+      errorMessage
+    });
+    
+    // Move to history
+    tradingHistory.push({ ...currentTradingStatus });
+    if (tradingHistory.length > 50) {
+      tradingHistory.shift();
+    }
+    
+    // Clear current status after a delay
+    setTimeout(() => {
+      currentTradingStatus = null;
+    }, 5000);
+  }
 }
 
 // WebSocket connection handler
@@ -397,6 +495,24 @@ app.get('/api/status', (req: Request, res: Response) => {
   res.json({ 
     running: botRunning,
     message: botRunning ? 'Bot is running' : 'Bot is stopped'
+  });
+});
+
+// API endpoint to get current trading status
+app.get('/api/trading-status', (req: Request, res: Response) => {
+  res.json({
+    current: currentTradingStatus,
+    isActive: currentTradingStatus !== null
+  });
+});
+
+// API endpoint to get trading history
+app.get('/api/trading-history', (req: Request, res: Response) => {
+  const limit = parseInt(req.query.limit as string) || 10;
+  const recentHistory = tradingHistory.slice(-limit).reverse();
+  res.json({
+    history: recentHistory,
+    totalCount: tradingHistory.length
   });
 });
 
@@ -1020,8 +1136,16 @@ async function getSimpleTrendingToken(): Promise<any> {
 }
 
 async function executeJupiterSwap(token: any): Promise<boolean> {
+  // Start trading session with enhanced visibility
+  const tradingId = startTradingSession(token.mint, token.symbol, token.name || token.symbol);
+  
   try {
-    addTradeLog('buy', `💫 Executing Jupiter swap for ${token.symbol}...`, token.mint);
+    // Stage 1: Initialize trading
+    updateTradingStatus({
+      status: 'preparing',
+      stage: 'Initializing Jupiter Swap',
+      progress: 10
+    });
     
     const axios = (await import('axios')).default;
     const { Connection, VersionedTransaction } = await import('@solana/web3.js');
@@ -1036,9 +1160,17 @@ async function executeJupiterSwap(token: any): Promise<boolean> {
     const amount = 500000; // 0.0005 SOL (~$0.12)
     const slippageBps = 1500; // 15% slippage
     
-    addTradeLog('info', `Getting quote for ${token.symbol}...`, token.mint);
+    // Stage 2: Get quote
+    updateTradingStatus({
+      stage: 'Getting Jupiter Quote',
+      progress: 25,
+      amount: amount / 1e9, // Convert to SOL
+      slippage: slippageBps / 100 // Convert to percentage
+    });
     
-    // Get quote from Jupiter
+    addTradeLog('info', `🔍 Getting quote for ${token.symbol} (${amount / 1e9} SOL)...`, token.mint);
+    
+    // Get quote from Jupiter with enhanced timeout handling
     const quoteResponse = await axios.get(`https://quote-api.jup.ag/v6/quote`, {
       params: {
         inputMint,
@@ -1048,15 +1180,28 @@ async function executeJupiterSwap(token: any): Promise<boolean> {
         onlyDirectRoutes: false,
         asLegacyTransaction: false
       },
-      timeout: 15000
+      timeout: 30000, // Increased timeout
+      retry: 3
     });
 
     if (!quoteResponse.data) {
-      addTradeLog('error', `No quote available for ${token.symbol}`, token.mint);
+      const errorMsg = `No quote available for ${token.symbol}`;
+      addTradeLog('error', errorMsg, token.mint);
+      completeTradingSession(false, errorMsg);
       return false;
     }
 
-    addTradeLog('info', `Quote received! Expected tokens: ${quoteResponse.data.outAmount}`, token.mint);
+    const expectedTokens = quoteResponse.data.outAmount;
+    const priceImpact = quoteResponse.data.priceImpactPct || 0;
+    
+    addTradeLog('info', `💰 Quote received! Expected: ${expectedTokens} tokens, Price Impact: ${priceImpact}%`, token.mint);
+
+    // Stage 3: Prepare transaction
+    updateTradingStatus({
+      stage: 'Preparing Swap Transaction',
+      progress: 50,
+      price: parseFloat(quoteResponse.data.inAmount) / parseFloat(quoteResponse.data.outAmount)
+    });
 
     // Get swap transaction
     const swapResponse = await axios.post('https://quote-api.jup.ag/v6/swap', {
@@ -1066,15 +1211,25 @@ async function executeJupiterSwap(token: any): Promise<boolean> {
       dynamicComputeUnitLimit: true,
       prioritizationFeeLamports: 200000 // Higher priority fee
     }, {
-      timeout: 15000
+      timeout: 30000,
+      retry: 3
     });
 
     if (!swapResponse.data?.swapTransaction) {
-      addTradeLog('error', `Failed to get swap transaction for ${token.symbol}`, token.mint);
+      const errorMsg = `Failed to get swap transaction for ${token.symbol}`;
+      addTradeLog('error', errorMsg, token.mint);
+      completeTradingSession(false, errorMsg);
       return false;
     }
 
-    addTradeLog('buy', `🚀 Sending transaction for ${token.symbol}...`, token.mint);
+    // Stage 4: Execute transaction
+    updateTradingStatus({
+      status: 'executing',
+      stage: 'Executing Swap Transaction',
+      progress: 75
+    });
+
+    addTradeLog('buy', `🚀 Executing swap for ${token.symbol}...`, token.mint);
 
     // Execute transaction
     const swapTransactionBuf = Buffer.from(swapResponse.data.swapTransaction, 'base64');
@@ -1089,21 +1244,41 @@ async function executeJupiterSwap(token: any): Promise<boolean> {
 
     addTradeLog('buy', `📡 Transaction sent! Signature: ${signature}`, token.mint, signature);
 
-    // Wait for confirmation
+    // Stage 5: Wait for confirmation
+    updateTradingStatus({
+      status: 'confirming',
+      stage: 'Confirming Transaction',
+      progress: 90,
+      transactionSignature: signature
+    });
+
+    // Wait for confirmation with timeout
     const confirmation = await connection.confirmTransaction(signature, 'confirmed');
     
     if (confirmation.value.err) {
-      addTradeLog('error', `Transaction failed: ${confirmation.value.err}`, token.mint, signature);
+      const errorMsg = `Transaction failed: ${confirmation.value.err}`;
+      addTradeLog('error', errorMsg, token.mint, signature);
+      completeTradingSession(false, errorMsg);
       return false;
     }
+
+    // Stage 6: Success
+    updateTradingStatus({
+      status: 'completed',
+      stage: 'Swap Completed Successfully',
+      progress: 100
+    });
 
     addTradeLog('buy', `✅ BUY SUCCESSFUL! Bought ${token.symbol}`, token.mint, signature);
     addTradeLog('info', `🎉 Check your wallet for ${token.symbol} tokens!`, token.mint);
     
+    completeTradingSession(true);
     return true;
     
   } catch (error) {
-    addTradeLog('error', `Jupiter swap failed: ${error}`, token.mint);
+    const errorMsg = `Jupiter swap failed: ${error}`;
+    addTradeLog('error', errorMsg, token.mint);
+    completeTradingSession(false, errorMsg);
     return false;
   }
 }
@@ -1583,6 +1758,52 @@ app.post('/api/signal-feed/trigger', (req: Request, res: Response) => {
     console.error('Failed to trigger signal generation:', error);
     res.status(500).json({ 
       error: 'Failed to trigger signal generation' 
+    });
+  }
+});
+
+// SOCIAL SENTIMENT API ENDPOINTS
+// ===============================
+
+// API endpoint to get social sentiment signals
+app.get('/api/social-sentiment/signals', async (req: Request, res: Response) => {
+  try {
+    const signals = await socialSentiment.getSignals();
+    res.json(signals);
+  } catch (error) {
+    console.error('Failed to get social sentiment signals:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch social sentiment signals',
+      signals: []
+    });
+  }
+});
+
+// API endpoint to get social metrics for a specific token
+app.get('/api/social-sentiment/metrics/:token', async (req: Request, res: Response) => {
+  try {
+    const token = req.params.token;
+    const metrics = await socialSentiment.getTokenMetrics(token);
+    res.json(metrics || {});
+  } catch (error) {
+    console.error('Failed to get social metrics:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch social metrics',
+      metrics: {}
+    });
+  }
+});
+
+// API endpoint to get social sentiment trends
+app.get('/api/social-sentiment/trends', async (req: Request, res: Response) => {
+  try {
+    const trends = await socialSentiment.getTrends();
+    res.json(trends || {});
+  } catch (error) {
+    console.error('Failed to get social sentiment trends:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch social sentiment trends',
+      trends: {}
     });
   }
 });

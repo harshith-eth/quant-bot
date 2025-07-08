@@ -11,6 +11,7 @@ import WhaleActivity from "@/components/WhaleActivity"
 import MarketAnalysis from "@/components/MarketAnalysis"
 import RiskManagement from "@/components/RiskManagement"
 import ExecuteTrades from "@/components/AIAnalysis"
+import FibonacciTable from "@/components/FibonacciTable"
 
 export default function Dashboard() {
   const [botRunning, setBotRunning] = useState(false)
@@ -174,7 +175,7 @@ export default function Dashboard() {
         </div>
 
         <div className="col-span-1">
-          <ExecuteTrades />
+          <FibonacciTable />
         </div>
       </div>
     </div>
